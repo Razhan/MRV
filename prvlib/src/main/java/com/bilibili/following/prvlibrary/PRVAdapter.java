@@ -5,42 +5,32 @@ import android.support.annotation.Nullable;
 import android.support.v4.util.ArrayMap;
 import android.support.v7.widget.RecyclerView;
 import android.util.SparseArray;
-import android.util.SparseIntArray;
 import android.view.ViewGroup;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
 
     @NonNull
     private final List<T> mItems = new ArrayList<>();
-    //    @NonNull
-//    private final Map<MT, ActionListener<? extends T, VH, ? extends VH>> mActionListenerMap;
     @NonNull
     private SparseArray<List<Binder<? super T, ? extends ViewHolder>>> mBinderListCache;
     @NonNull
-    private SparseIntArray mViewHolderToItemPositionCache;
+    private List<Integer> mViewHolderToItemPositionCache;
     @NonNull
-    private SparseIntArray mItemPositionToFirstViewHolderPositionCache;
+    private List<Integer> mItemPositionToFirstViewHolderPositionCache;
     @NonNull
-    protected ArrayMap<Class, ItemBinder<? extends T, ? extends Binder<? extends T, ? extends ViewHolder>>> mItemBinderMap;
-
+    private ArrayMap<Class<? extends T>, ItemBinder<? extends T, ? extends Binder<? extends T, ? extends ViewHolder>>> mItemBinderMap;
     @NonNull
-//    private final Map<Integer, Class<? extends VH>> mViewTypeToViewHolderClassMap;
-//    @NonNull
-//    private final Map<MT, ItemBinder<? extends T, ? extends VH, ? extends Binder>> mItemBinderMap;
-//    @NonNull
     private SparseArray<? extends Binder> mBinderInfo;
 
     public PRVAdapter() {
-//        mActionListenerMap = new ArrayMap<>();
-//        mBinderListCache = new ArrayList<>();
-//        mViewHolderToItemPositionCache = new ArrayList<>();
-//        mItemPositionToFirstViewHolderPositionCache = new ArrayList<>();
-//        mViewTypeToViewHolderClassMap = new ArrayMap<>();
-//        mItemBinderMap = new ArrayMap<>();
+        mBinderListCache = new SparseArray<>();
+        mViewHolderToItemPositionCache = new ArrayList<>();
+        mItemPositionToFirstViewHolderPositionCache = new ArrayList<>();
+        mItemBinderMap = new ArrayMap<>();
+        mBinderInfo = new SparseArray<>();
     }
 
     @Override
@@ -86,12 +76,35 @@ public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
     }
 
     public void add(final int position, @NonNull final T item) {
-        final int numViewHolders = getViewHolderCount(position);
         final List<Binder<? super T, ? extends ViewHolder>> binders = getParts(item, position);
+        if (binders == null || binders.isEmpty()) {
+            return;
+        }
 
+        final int numViewHolders = getViewHolderCount(position);
 
+        mItems.add(position, item);
+        mBinderListCache.put(position, binders);
+
+        notifyItemRangeInserted(numViewHolders, binders.size());
+
+        final List<Integer> itemPositions = new ArrayList<>();
+        for (int i = 0; i < binders.size(); i++) {
+            itemPositions.add(position);
+        }
+
+        mViewHolderToItemPositionCache.addAll(numViewHolders, itemPositions);
+        for (int viewHolderIndex = numViewHolders + binders.size(); viewHolderIndex < mViewHolderToItemPositionCache.size();
+             viewHolderIndex++) {
+            mViewHolderToItemPositionCache.set(viewHolderIndex, mViewHolderToItemPositionCache.get(viewHolderIndex) + 1);
+        }
+
+        mItemPositionToFirstViewHolderPositionCache.add(position, numViewHolders);
+        for (int itemIndex = position + 1; itemIndex < mItemPositionToFirstViewHolderPositionCache.size(); itemIndex++) {
+            mItemPositionToFirstViewHolderPositionCache.set(itemIndex,
+                    mItemPositionToFirstViewHolderPositionCache.get(itemIndex) + binders.size());
+        }
     }
-
 
     private BinderResult<? super T> computeItemAndBinderIndex(final int viewHolderPosition) {
         final int itemIndex = mViewHolderToItemPositionCache.get(viewHolderPosition);
