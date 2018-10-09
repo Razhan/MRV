@@ -11,7 +11,7 @@ public class TextPrimitiveViewHolder extends ViewHolder {
 
     public TextPrimitiveViewHolder(final View itemView) {
         super(itemView);
-        textView = (TextView) itemView.findViewById(R.id.text);
+        textView = itemView.findViewById(R.id.text);
     }
 
     public TextView getTextView() {

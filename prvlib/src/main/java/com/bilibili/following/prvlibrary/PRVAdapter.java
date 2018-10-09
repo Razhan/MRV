@@ -15,7 +15,7 @@ public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
     @NonNull
     private final List<T> mItems = new ArrayList<>();
     @NonNull
-    private SparseArray<List<Binder<? super T, ? extends ViewHolder>>> mBinderListCache;
+    private SparseArray<List<Binder<? extends T, ? extends ViewHolder>>> mBinderListCache;
     @NonNull
     private List<Integer> mViewHolderToItemPositionCache;
     @NonNull
@@ -23,7 +23,7 @@ public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
     @NonNull
     private ArrayMap<Class<? extends T>, ItemBinder<? extends T, ? extends Binder<? extends T, ? extends ViewHolder>>> mItemBinderMap;
     @NonNull
-    private SparseArray<? extends Binder> mBinderInfo;
+    protected SparseArray<Binder<? extends T, ? extends ViewHolder>> mBinderInfo;
 
     public PRVAdapter() {
         mBinderListCache = new SparseArray<>();
@@ -40,9 +40,9 @@ public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
 
     @Override
     public int getItemViewType(final int position) {
-        final BinderResult<? super T> result = computeItemAndBinderIndex(position);
+        final BinderResult<? extends T> result = computeItemAndBinderIndex(position);
 
-        final Binder<? super T, ? extends ViewHolder> binder = result.getBinder();
+        final Binder binder = result.getBinder();
         final int viewType;
 
         if (binder != null) {
@@ -61,9 +61,8 @@ public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public void onBindViewHolder(@NonNull final ViewHolder holder, final int viewHolderPosition) {
-        final BinderResult<? super T> result = computeItemAndBinderIndex(viewHolderPosition);
+        final BinderResult<? extends T> result = computeItemAndBinderIndex(viewHolderPosition);
         final Binder binder = result.getBinder();
 
         if (binder != null && result.item != null && result.binderList != null) {
@@ -71,12 +70,17 @@ public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
         }
     }
 
+    protected void register(@NonNull final Class<? extends T> modelType,
+                            @NonNull final ItemBinder<? extends T, ? extends Binder<? extends T, ? extends ViewHolder>> parts) {
+        mItemBinderMap.put(modelType, parts);
+    }
+
     public void add(@NonNull final T item) {
         add(mItems.size(), item);
     }
 
     public void add(final int position, @NonNull final T item) {
-        final List<Binder<? super T, ? extends ViewHolder>> binders = getParts(item, position);
+        final List<Binder<? extends T, ? extends ViewHolder>> binders = getParts(item, position);
         if (binders == null || binders.isEmpty()) {
             return;
         }
@@ -106,10 +110,10 @@ public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
         }
     }
 
-    private BinderResult<? super T> computeItemAndBinderIndex(final int viewHolderPosition) {
+    private BinderResult<? extends T> computeItemAndBinderIndex(final int viewHolderPosition) {
         final int itemIndex = mViewHolderToItemPositionCache.get(viewHolderPosition);
         final T item = mItems.get(itemIndex);
-        final List<Binder<? super T, ? extends ViewHolder>> binders = mBinderListCache.get(itemIndex);
+        final List binders = mBinderListCache.get(itemIndex);
 
         final int firstVHPosForItem = mItemPositionToFirstViewHolderPositionCache.get(itemIndex);
 
@@ -129,8 +133,8 @@ public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
     }
 
     @Nullable
-    private List<Binder<? super T, ? extends ViewHolder>> getParts(final T model, final int position) {
-        final List<Binder<? super T, ? extends ViewHolder>> list;
+    private List<Binder<? extends T, ? extends ViewHolder>> getParts(final T model, final int position) {
+        final List<Binder<? extends T, ? extends ViewHolder>> list;
 
         final ItemBinder itemBinder = mItemBinderMap.get(model.getClass());
 

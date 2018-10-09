@@ -11,8 +11,6 @@ public interface Binder<T, VH extends ViewHolder> {
 
     VH create(ViewGroup parent);
 
-    void prepare(@NonNull T model, List<Binder<? super T, ? extends ViewHolder>> binderList, int binderIndex);
-
     void bind(@NonNull T model, @NonNull VH holder, @NonNull List<Binder<? super T, ? extends ViewHolder>> binderList,
               int binderIndex);
 
