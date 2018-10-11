@@ -1,3 +1,5 @@
+import org.gradle.internal.jvm.Jvm
+
 apply plugin: 'java-library'
 
 dependencies {
@@ -5,6 +7,10 @@ dependencies {
     implementation 'com.google.auto.service:auto-service:1.0-rc4'
     implementation 'com.squareup:javapoet:1.11.1'
     implementation project(':prvannotations')
+
+    //解析R文件
+    compileOnly files(Jvm.current().getToolsJar())
+
 }
 
 sourceCompatibility = "7"

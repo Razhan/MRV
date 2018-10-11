@@ -7,10 +7,15 @@ import android.support.v7.widget.RecyclerView;
 import android.util.SparseArray;
 import android.view.ViewGroup;
 
+import com.bilibili.following.prvlibrary.binder.Binder;
+import com.bilibili.following.prvlibrary.binder.BinderResult;
+import com.bilibili.following.prvlibrary.binder.ItemBinder;
+import com.bilibili.following.prvlibrary.viewholder.ViewHolder;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
+public abstract class PrvAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
 
     @NonNull
     private final List<T> mItems = new ArrayList<>();
@@ -25,7 +30,7 @@ public abstract class PRVAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
     @NonNull
     protected SparseArray<Binder<? extends T, ? extends ViewHolder>> mBinderInfo;
 
-    public PRVAdapter() {
+    public PrvAdapter() {
         mBinderListCache = new SparseArray<>();
         mViewHolderToItemPositionCache = new ArrayList<>();
         mItemPositionToFirstViewHolderPositionCache = new ArrayList<>();

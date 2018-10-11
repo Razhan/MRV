@@ -1,6 +1,8 @@
-package com.bilibili.following.prvlibrary;
+package com.bilibili.following.prvlibrary.binder;
 
 import android.support.annotation.Nullable;
+
+import com.bilibili.following.prvlibrary.viewholder.ViewHolder;
 
 import java.util.List;
 
@@ -12,11 +14,11 @@ public class BinderResult<T> {
     private final int itemPosition;
 
     @Nullable
-    final List<Binder<? super T, ? extends ViewHolder>> binderList;
+    public final List<Binder<? super T, ? extends ViewHolder>> binderList;
 
-    final int binderIndex;
+    public final int binderIndex;
 
-    BinderResult(@Nullable final T item,
+    public BinderResult(@Nullable final T item,
                  final int itemPosition,
                  @Nullable final List<Binder<? super T, ? extends ViewHolder>> binderList,
                  final int binderIndex) {
@@ -27,7 +29,7 @@ public class BinderResult<T> {
     }
 
     @Nullable
-    Binder<? super T, ? extends ViewHolder> getBinder() {
+    public Binder<? super T, ? extends ViewHolder> getBinder() {
         return binderList != null && binderIndex >= 0 && binderIndex < binderList.size()
                 ? binderList.get(binderIndex) : null;
     }

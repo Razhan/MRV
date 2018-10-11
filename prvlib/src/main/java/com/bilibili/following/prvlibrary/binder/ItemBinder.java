@@ -1,6 +1,8 @@
-package com.bilibili.following.prvlibrary;
+package com.bilibili.following.prvlibrary.binder;
 
 import android.support.annotation.NonNull;
+
+import com.bilibili.following.prvlibrary.viewholder.ViewHolder;
 
 import java.util.List;
 

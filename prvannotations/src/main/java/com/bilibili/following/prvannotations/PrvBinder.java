@@ -9,8 +9,8 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.TYPE)
-public @interface Binder {
+public @interface PrvBinder {
 
-    @LayoutRes int Layout() default -1;
+    @LayoutRes int value() default -1;
 
 }

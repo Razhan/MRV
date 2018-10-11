@@ -22,6 +22,11 @@ android {
         }
     }
 
+    dataBinding {
+        // DataBinding is pulling in an old version of the support library which makes lint complain.
+        // Ignoring it for now until we can figure out how to fix it.
+        enabled = true
+    }
 }
 
 dependencies {
@@ -31,5 +36,5 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
-    implementation project(':prvannotations')
+    api project(':prvannotations')
 }
