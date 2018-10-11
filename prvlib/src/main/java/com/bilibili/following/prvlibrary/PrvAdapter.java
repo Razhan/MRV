@@ -26,11 +26,11 @@ public abstract class PrvAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
     @NonNull
     private List<Integer> mItemPositionToFirstViewHolderPositionCache;
     @NonNull
-    private ArrayMap<Class<? extends T>, ItemBinder<? extends T, ? extends Binder<? extends T, ? extends ViewHolder>>> mItemBinderMap;
+    private ArrayMap<Class<? extends T>, ItemBinder<? extends T, ? extends Binder>> mItemBinderMap;
     @NonNull
     protected SparseArray<Binder<? extends T, ? extends ViewHolder>> mBinderInfo;
 
-    public PrvAdapter() {
+    protected PrvAdapter() {
         mBinderListCache = new SparseArray<>();
         mViewHolderToItemPositionCache = new ArrayList<>();
         mItemPositionToFirstViewHolderPositionCache = new ArrayList<>();
@@ -76,7 +76,7 @@ public abstract class PrvAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
     }
 
     protected void register(@NonNull final Class<? extends T> modelType,
-                            @NonNull final ItemBinder<? extends T, ? extends Binder<? extends T, ? extends ViewHolder>> parts) {
+                            @NonNull final ItemBinder<? extends T, ? extends Binder> parts) {
         mItemBinderMap.put(modelType, parts);
     }
 

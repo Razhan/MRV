@@ -2,11 +2,11 @@ package com.bilibili.following.prv.binder;
 
 import com.bilibili.following.prvlibrary.binder.BindingModel;
 
-public class TextPrimitiveBindingModel implements BindingModel {
+public class TextBinderModel implements BindingModel {
 
     private String textRes;
 
-    private TextPrimitiveBindingModel(Builder builder) {
+    private TextBinderModel(Builder builder) {
         setTextRes(builder.textRes);
     }
 
@@ -17,7 +17,6 @@ public class TextPrimitiveBindingModel implements BindingModel {
     public void setTextRes(String textRes) {
         this.textRes = textRes;
     }
-
 
     public static final class Builder {
         private String textRes;
@@ -30,8 +29,8 @@ public class TextPrimitiveBindingModel implements BindingModel {
             return this;
         }
 
-        public TextPrimitiveBindingModel build() {
-            return new TextPrimitiveBindingModel(this);
+        public TextBinderModel build() {
+            return new TextBinderModel(this);
         }
     }
 }

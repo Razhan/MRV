@@ -32,6 +32,14 @@ public abstract class DataBindingBinder<T, VH extends DataBindingViewHolder, BM 
         }
     }
 
+    @Override
+    public void prepare(@NonNull T model, List<Binder<? super T, ? extends ViewHolder>> binders, int binderIndex) {
+
+    }
+
+    //从真实数据模型中抽取需要展示的数据，轻量数据操作
+    //解耦数据解析与渲染逻辑
+    @NonNull
     protected abstract BM prepareBindingModel(T model);
 
     protected abstract void setDataBindingVariables(T model, ViewDataBinding binding);
