@@ -15,7 +15,7 @@ import com.bilibili.following.prvlibrary.viewholder.ViewHolder;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class PrvAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
+public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
 
     @NonNull
     private final List<T> mItems = new ArrayList<>();
@@ -30,7 +30,7 @@ public abstract class PrvAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
     @NonNull
     protected SparseArray<Binder<? extends T, ? extends ViewHolder>> mBinderInfo;
 
-    protected PrvAdapter() {
+    protected BasePrvAdapter() {
         mBinderListCache = new SparseArray<>();
         mViewHolderToItemPositionCache = new ArrayList<>();
         mItemPositionToFirstViewHolderPositionCache = new ArrayList<>();

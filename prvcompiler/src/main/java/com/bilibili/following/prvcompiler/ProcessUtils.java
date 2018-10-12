@@ -110,22 +110,20 @@ public class ProcessUtils {
         return typeMirrors;
     }
 
-    static String getModuleName(Element element) {
+    static String getRootModuleString(Element element) {
         PackageElement packageOf = elements.getPackageOf(element);
-        String packageName = packageOf.getQualifiedName().toString();
+        String packageName = packageOf.getQualifiedName().toString() ;
 
-        String[] packageNameParts = packageName.split("\\.");
+        while (true) {
+            if (packageName.lastIndexOf(".") > 0) {
+                packageName = packageName.substring(0, packageName.lastIndexOf("."));
 
-        StringBuilder moduleName = new StringBuilder();
-        for (String packageNamePart : packageNameParts) {
-            moduleName.append(packageNamePart);
-
-
-            Element rClass = getElementByName(moduleName + ".R", elements, types);
-            if (rClass != null) {
-                return moduleName.toString();
+                Element rClass = getElementByName(packageName + ".R", elements, types);
+                if (rClass != null) {
+                    return packageName;
+                }
             } else {
-                moduleName.append(".");
+               break;
             }
         }
 

@@ -33,6 +33,11 @@ public abstract class DataBindingBinder<T, VH extends DataBindingViewHolder, BM 
     }
 
     @Override
+    public void unbind(@NonNull VH holder) {
+
+    }
+
+    @Override
     public void prepare(@NonNull T model, List<Binder<? super T, ? extends ViewHolder>> binders, int binderIndex) {
 
     }

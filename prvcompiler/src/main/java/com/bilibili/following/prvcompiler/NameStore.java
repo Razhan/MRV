@@ -4,9 +4,11 @@ public class NameStore {
     private NameStore() {
     }
 
+    static final String AUTO_IMPL = "$Impl";
     static final String IMPL = "Impl";
-    static final String MODEL = "Model";
 
+    static final String MODEL = "Model";
+    static final String BR = "BR";
 
     //lib
     static final String LIB = "com.bilibili.following.prvlibrary";

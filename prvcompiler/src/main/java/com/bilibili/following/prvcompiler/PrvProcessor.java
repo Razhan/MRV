@@ -1,6 +1,7 @@
 package com.bilibili.following.prvcompiler;
 
 import com.bilibili.following.prvannotations.Keep;
+import com.bilibili.following.prvannotations.PrvAdapter;
 import com.bilibili.following.prvannotations.PrvBinder;
 import com.bilibili.following.prvannotations.PrvItemBinder;
 import com.google.auto.service.AutoService;
@@ -8,7 +9,6 @@ import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
-import com.squareup.javapoet.ParameterSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
@@ -107,7 +107,7 @@ public class PrvProcessor extends AbstractProcessor {
 
             packageName = ClassName.get(itemBinder.first).packageName();
             className = ClassName.get(itemBinder.first).simpleName();
-            implClassName = className + NameStore.IMPL;
+            implClassName = className + NameStore.AUTO_IMPL;
 
             List<? extends TypeMirror> types = ProcessUtils.getGenericTypes(itemBinder.first);
             if (types == null || types.isEmpty()) {
@@ -133,12 +133,13 @@ public class PrvProcessor extends AbstractProcessor {
 
             for (int i = 0; i < itemBinder.second.size(); i++) {
                 TypeName binderName = itemBinder.second.get(i);
-                methodBuilder.addCode("new $T()", ClassName.bestGuess(binderName.toString() + NameStore.IMPL));
+                methodBuilder.addCode("new $T()", ClassName.bestGuess(binderName.toString() + NameStore.AUTO_IMPL));
 
                 if (i != itemBinder.second.size() - 1) {
                     methodBuilder.addCode(", ");
                 } else {
-                    methodBuilder.addCode("));");
+                    methodBuilder.addCode("))")
+                                 .addCode(";");
                 }
             }
 
@@ -170,7 +171,7 @@ public class PrvProcessor extends AbstractProcessor {
         for (Map.Entry<TypeElement, Integer> entry : binderSet.entrySet()) {
             packageName = ClassName.get(entry.getKey()).packageName();
             className = ClassName.get(entry.getKey()).simpleName();
-            implClassName = className + NameStore.IMPL;
+            implClassName = className + NameStore.AUTO_IMPL;
             binderModelTypeClass = ClassName.bestGuess(entry.getKey().toString() + NameStore.MODEL);
 
             List<? extends TypeMirror> types = ProcessUtils.getGenericTypes(entry.getKey());
@@ -205,15 +206,8 @@ public class PrvProcessor extends AbstractProcessor {
                             .addParameter(binderDataTypeClass, "model")
                             .addParameter(ClassName.bestGuess(NameStore.VIEW_DATA_BINDING), "binding")
                             .addStatement("$T $N = prepareBindingModel($N)", binderModelTypeClass, "bindingModel", "model")
-//                            .addStatement("$N.setVariable($T.textRes, $N.getTextRes())", "binding", ProcessUtils.getModuleName(entry.getKey()), "bindingModel")
-                            .build())
-                    .addMethod(MethodSpec.methodBuilder("unbind")
-                            .addModifiers(PUBLIC)
-                            .returns(void.class)
-                            .addAnnotation(Override.class)
-                            .addParameter(ParameterSpec.builder(dataBindingViewHolderClass, "holder")
-                                    .addAnnotation(AnnotationSpec.builder(ClassName.bestGuess(NameStore.NONNULL)).build())
-                                    .build())
+                            .addStatement("$N.setVariable($T.textRes, $N.getTextRes())", "binding",
+                                    ClassName.get(ProcessUtils.getRootModuleString(entry.getKey()), NameStore.BR), "bindingModel")
                             .build());
 
             createFile(packageName, classBuilder);
@@ -235,6 +229,7 @@ public class PrvProcessor extends AbstractProcessor {
     public Set<String> getSupportedAnnotationTypes() {
         return new TreeSet<>(Arrays.asList(
                 PrvItemBinder.class.getCanonicalName(),
+                PrvAdapter.class.getCanonicalName(),
                 PrvBinder.class.getCanonicalName(),
                 Keep.class.getCanonicalName()));
     }
