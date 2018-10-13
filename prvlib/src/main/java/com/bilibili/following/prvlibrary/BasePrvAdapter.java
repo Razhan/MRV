@@ -26,7 +26,7 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
     @NonNull
     private List<Integer> mItemPositionToFirstViewHolderPositionCache;
     @NonNull
-    private ArrayMap<Class<? extends T>, ItemBinder<? extends T, ? extends Binder>> mItemBinderMap;
+    protected ArrayMap<Class<? extends T>, ItemBinder<? extends T, ? extends Binder>> mItemBinderMap;
     @NonNull
     protected SparseArray<Binder<? extends T, ? extends ViewHolder>> mBinderInfo;
 

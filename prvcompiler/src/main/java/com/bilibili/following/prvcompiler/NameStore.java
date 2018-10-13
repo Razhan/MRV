@@ -15,6 +15,7 @@ public class NameStore {
     static final String VIEWHOLDER = LIB + ".viewholder.ViewHolder";
     static final String DATA_BINDING_VIEWHOLDER = LIB + ".viewholder.DataBindingViewHolder";
     static final String BINDER = LIB + ".binder.Binder";
+    static final String ITEM_BINDER = LIB + ".binder.ItemBinder";
 
     //Android
     static final String VIEW_GROUP = "android.view.ViewGroup";

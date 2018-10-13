@@ -8,7 +8,9 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.SOURCE)
 @Target(ElementType.TYPE)
 public @interface PrvItemBinder {
+    //约定如果没有显性定义，隐性使用父类第一项泛型类型
+    Class type() default None.class;
 
-    Class[] value();
+    Class[] binder();
 
 }

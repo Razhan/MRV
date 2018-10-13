@@ -1,5 +1,6 @@
 package com.bilibili.following.prvcompiler;
 
+import com.bilibili.following.prvannotations.None;
 import com.bilibili.following.prvannotations.PrvBinder;
 import com.bilibili.following.prvannotations.PrvItemBinder;
 import com.squareup.javapoet.ClassName;
@@ -18,6 +19,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.MirroredTypeException;
 import javax.lang.model.type.MirroredTypesException;
 import javax.lang.model.type.TypeKind;
@@ -39,27 +41,15 @@ public class ProcessUtils {
     }
 
     @SuppressWarnings("ConstantConditions")
-    static Set<Pair<TypeElement, List<TypeName>>> getItemBinderSet(RoundEnvironment env) {
-        Set<Pair<TypeElement, List<TypeName>>> itemBinderSet = new LinkedHashSet<>();
+    static Set<ItemBinderInfo> getItemBinderSet(RoundEnvironment env) {
+        Set<ItemBinderInfo> itemBinderSet = new LinkedHashSet<>();
 
         for (Element element : env.getElementsAnnotatedWith(PrvItemBinder.class)) {
             if (!(element instanceof TypeElement)) {
                 messager.printMessage(Diagnostic.Kind.ERROR, "Annotation PrvItemBinder should target on a Class");
             }
 
-            List<TypeName> binders = new ArrayList<>();
-            PrvItemBinder annotation = element.getAnnotation(PrvItemBinder.class);
-            try {
-                annotation.value();
-            } catch (MirroredTypesException ex) {
-                List<? extends TypeMirror> types = ex.getTypeMirrors();
-                for (TypeMirror type : types) {
-                    binders.add(ClassName.get(type));
-                }
-            }
-
-            // TODO: 10/11/18 检验binder是否重复
-            itemBinderSet.add(Pair.create((TypeElement) element, binders));
+            itemBinderSet.add(getItemBinderInfo((TypeElement) element));
         }
 
         return itemBinderSet;
@@ -73,7 +63,7 @@ public class ProcessUtils {
                 throw new IllegalArgumentException("Annotation PrvBinder should target on a Class");
             }
 
-            // TODO: 10/11/18 检验布局是否重复，布局作为TYPE ID，不可重复
+            // TODO: 10/11/18 check duplicated layout
             PrvBinder annotation = element.getAnnotation(PrvBinder.class);
             if (annotation != null) {
                 binderSet.put((TypeElement) element, annotation.value());
@@ -83,7 +73,7 @@ public class ProcessUtils {
         return binderSet;
     }
 
-    static List<? extends TypeMirror> getGenericTypes(TypeElement element) {
+    static List<? extends TypeMirror> getClassGenericTypes(TypeElement element) {
         TypeElement typeElement = element;
         List<? extends TypeMirror> typeMirrors;
 
@@ -130,12 +120,103 @@ public class ProcessUtils {
         return null;
     }
 
+    // TODO: 10/13/2018 need to test code
+    private static ItemBinderInfo getItemBinderInfo(TypeElement element) {
+        List<? extends TypeMirror> interfaces = element.getInterfaces();
+
+        boolean hasItemBinderInterface = false;
+        List<String> overrideMethods = new ArrayList<>();
+        List<TypeName> binders = new ArrayList<>();
+        TypeName dataType;
+
+        if (interfaces == null || interfaces.isEmpty()) {
+            hasItemBinderInterface = false;
+        } else {
+            for (TypeMirror interfaceType : interfaces) {
+                TypeElement interfaceElement = (TypeElement) ((DeclaredType) interfaceType).asElement();
+                if (interfaceElement.toString().equals(NameStore.ITEM_BINDER)) {
+                    hasItemBinderInterface = true;
+                    overrideMethods = getOverrideMethodNames(interfaceElement, element);
+                    break;
+                }
+            }
+        }
+
+        PrvItemBinder annotation = element.getAnnotation(PrvItemBinder.class);
+        try {
+            annotation.binder();
+        } catch (MirroredTypesException ex) {
+            List<? extends TypeMirror> types = ex.getTypeMirrors();
+            for (TypeMirror type : types) {
+                binders.add(ClassName.get(type));
+            }
+
+            if (overrideMethods.isEmpty() && binders.isEmpty()) {
+                messager.printMessage(Diagnostic.Kind.ERROR, "Annotation PrvItemBinder must has corresponding binders");
+                return null;
+            }
+        }
+
+        try {
+            dataType = ClassName.get(annotation.type());
+        } catch (MirroredTypeException ex) {
+            dataType = ClassName.get(ex.getTypeMirror());
+        }
+
+        if (dataType.toString().equals(None.class.getName())) {
+            List<? extends TypeMirror> genericTypes = getClassGenericTypes(element);
+            if (genericTypes == null || genericTypes.isEmpty()) {
+                messager.printMessage(Diagnostic.Kind.ERROR, "Annotation PrvItemBinder must has a corresponding data type");
+                return null;
+            }
+            dataType = ClassName.bestGuess(genericTypes.get(0).toString());
+        }
+
+        return new ItemBinderInfo(element, dataType, binders, hasItemBinderInterface, overrideMethods);
+    }
+
     private static Element getElementByName(String name, Elements elements, Types types) {
         try {
             return elements.getTypeElement(name);
         } catch (MirroredTypeException mte) {
             return types.asElement(mte.getTypeMirror());
         }
+    }
+
+    private static List<String> getOverrideMethodNames(TypeElement interfaceElement, TypeElement classElement) {
+        List<String> interfaceMethods  = new ArrayList<>();
+        for (Element element :  interfaceElement.getEnclosedElements()) {
+            if (element.asType() instanceof ExecutableType) {
+                interfaceMethods.add(element.getSimpleName().toString());
+            }
+        }
+
+        List<String> overrideMethods  = new ArrayList<>();
+
+
+        while (true) {
+            TypeMirror superClass = classElement.getSuperclass();
+            if (superClass.getKind() == TypeKind.NONE) {
+                break;
+            }
+
+            for (Element element : classElement.getEnclosedElements()) {
+                if (element.asType() instanceof ExecutableType && element.getAnnotation(Override.class) != null) {
+                    overrideMethods.add(element.getSimpleName().toString());
+                }
+            }
+
+            classElement = (TypeElement) ((DeclaredType) superClass).asElement();
+        }
+
+        List<String> res  = new ArrayList<>();
+        for (String method : overrideMethods) {
+            if (interfaceMethods.contains(method)) {
+                res.add(method);
+            }
+        }
+
+        return res;
     }
 
 }

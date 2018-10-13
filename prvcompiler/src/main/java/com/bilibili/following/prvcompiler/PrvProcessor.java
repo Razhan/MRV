@@ -85,7 +85,7 @@ public class PrvProcessor extends AbstractProcessor {
         return true;
     }
 
-    private void generateItemBinder(Set<Pair<TypeElement, List<TypeName>>> itemBinderSet) {
+    private void generateItemBinder(Set<ItemBinderInfo> itemBinderSet) {
         if (itemBinderSet == null || itemBinderSet.isEmpty()) {
             return;
         }
@@ -93,29 +93,19 @@ public class PrvProcessor extends AbstractProcessor {
         ClassName NonNull = ClassName.get("android.support.annotation", "NonNull");
         ClassName viewHolderClass = ClassName.bestGuess(NameStore.VIEWHOLDER);
         ClassName binderClass = ClassName.bestGuess(NameStore.BINDER);
+        ClassName itemBinderClass = ClassName.bestGuess(NameStore.ITEM_BINDER);
 
         String packageName;
         String className;
         String implClassName;
         ClassName itemBinderDataTypeClass;
 
-        for (Pair<TypeElement, List<TypeName>> itemBinder : itemBinderSet) {
-            if (itemBinder.second == null || itemBinder.second.isEmpty()) {
-                messager.printMessage(Diagnostic.Kind.ERROR, "ItemBinder must has corresponding binder types");
-                return;
-            }
-
-            packageName = ClassName.get(itemBinder.first).packageName();
-            className = ClassName.get(itemBinder.first).simpleName();
+        for (ItemBinderInfo itemBinder : itemBinderSet) {
+            packageName = ClassName.get(itemBinder.itemBinder).packageName();
+            className = ClassName.get(itemBinder.itemBinder).simpleName();
             implClassName = className + NameStore.AUTO_IMPL;
 
-            List<? extends TypeMirror> types = ProcessUtils.getGenericTypes(itemBinder.first);
-            if (types == null || types.isEmpty()) {
-                messager.printMessage(Diagnostic.Kind.ERROR, "ItemBinder must has a corresponding model type");
-                return;
-            }
-
-            itemBinderDataTypeClass = ClassName.bestGuess(types.get(0).toString());
+            itemBinderDataTypeClass = ClassName.bestGuess(itemBinder.dataType.toString());
             WildcardTypeName viewHolderWildcardTypeName = WildcardTypeName.subtypeOf(viewHolderClass);
             TypeName binderTypeName = ParameterizedTypeName.get(binderClass, itemBinderDataTypeClass, viewHolderWildcardTypeName);
 
@@ -131,15 +121,14 @@ public class PrvProcessor extends AbstractProcessor {
                     .addParameter(int.class, "position")
                     .addCode("return new $T<>($T.asList(", ArrayList.class, Arrays.class);
 
-            for (int i = 0; i < itemBinder.second.size(); i++) {
-                TypeName binderName = itemBinder.second.get(i);
+            for (int i = 0; i < itemBinder.binderList.size(); i++) {
+                TypeName binderName = itemBinder.binderList.get(i);
                 methodBuilder.addCode("new $T()", ClassName.bestGuess(binderName.toString() + NameStore.AUTO_IMPL));
 
-                if (i != itemBinder.second.size() - 1) {
+                if (i != itemBinder.binderList.size() - 1) {
                     methodBuilder.addCode(", ");
                 } else {
-                    methodBuilder.addCode("))")
-                                 .addCode(";");
+                    methodBuilder.addCode("))").addCode(";");
                 }
             }
 
@@ -148,8 +137,13 @@ public class PrvProcessor extends AbstractProcessor {
             TypeSpec.Builder classBuilder = TypeSpec.classBuilder(implClassName)
                     .addModifiers(PUBLIC, FINAL)
                     .addAnnotation(Keep.class)
-                    .superclass(ClassName.get(itemBinder.first))
-                    .addMethod(methodBuilder.build());
+                    .superclass(ClassName.get(itemBinder.itemBinder));
+
+            if (!itemBinder.hasImplemented) {
+                TypeName interfaceTypeName = ParameterizedTypeName.get(itemBinderClass, itemBinderDataTypeClass, binderTypeName);
+                classBuilder.addSuperinterface(interfaceTypeName);
+                classBuilder.addMethod(methodBuilder.build());
+            }
 
             createFile(packageName, classBuilder);
         }
@@ -174,7 +168,7 @@ public class PrvProcessor extends AbstractProcessor {
             implClassName = className + NameStore.AUTO_IMPL;
             binderModelTypeClass = ClassName.bestGuess(entry.getKey().toString() + NameStore.MODEL);
 
-            List<? extends TypeMirror> types = ProcessUtils.getGenericTypes(entry.getKey());
+            List<? extends TypeMirror> types = ProcessUtils.getClassGenericTypes(entry.getKey());
             if (types == null || types.isEmpty()) {
                 messager.printMessage(Diagnostic.Kind.ERROR, "ItemBinder must has a corresponding model type");
                 return;
