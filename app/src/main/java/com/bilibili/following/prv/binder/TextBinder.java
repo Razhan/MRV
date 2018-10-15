@@ -10,12 +10,12 @@ import com.bilibili.following.prvlibrary.binder.DataBindingBinder;
 import com.bilibili.following.prvlibrary.viewholder.DataBindingViewHolder;
 
 @PrvBinder(R.layout.item_binding_button)
-public abstract class TextBinder extends DataBindingBinder<ColorNamePrimitive, DataBindingViewHolder, TextBinderModel> {
+public abstract class TextBinder extends DataBindingBinder<ColorNamePrimitive, DataBindingViewHolder, BaseTextBinderModel> {
 
     @NonNull
     @Override
-    protected TextBinderModel prepareBindingModel(ColorNamePrimitive model) {
-        return new TextBinderModel.Builder()
+    protected BaseTextBinderModel prepareBindingModel(ColorNamePrimitive model) {
+        return new BaseTextBinderModel.Builder()
                 .text(model.getString()).build();
     }
 }

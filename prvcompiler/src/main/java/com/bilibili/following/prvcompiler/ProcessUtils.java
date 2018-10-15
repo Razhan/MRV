@@ -1,6 +1,7 @@
 package com.bilibili.following.prvcompiler;
 
 import com.bilibili.following.prvannotations.None;
+import com.bilibili.following.prvannotations.PrvAttribute;
 import com.bilibili.following.prvannotations.PrvBinder;
 import com.bilibili.following.prvannotations.PrvItemBinder;
 import com.squareup.javapoet.ClassName;
@@ -8,16 +9,19 @@ import com.squareup.javapoet.TypeName;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.MirroredTypeException;
@@ -118,6 +122,34 @@ public class ProcessUtils {
         }
 
         return null;
+    }
+
+    static Map<TypeElement, Set<BindingModelInfo>> getBindingModelSet(RoundEnvironment env) {
+        Map<TypeElement, Set<BindingModelInfo>> BindingModelMap = new HashMap<>();
+
+        for (Element element : env.getElementsAnnotatedWith(PrvAttribute.class)) {
+            if (!(element instanceof VariableElement)) {
+                messager.printMessage(Diagnostic.Kind.ERROR, "Annotation PrvAttribute should target on a Field");
+            }
+
+            TypeElement typeElement = (TypeElement) element.getEnclosingElement();
+            Set<BindingModelInfo> attributeSet;
+            if (BindingModelMap.containsKey(typeElement)) {
+                attributeSet = BindingModelMap.get(typeElement);
+            } else {
+                attributeSet = new HashSet<>();
+            }
+
+            String modelName  = element.getEnclosingElement().getSimpleName().toString();
+            String packageName = ClassName.bestGuess(element.getEnclosingElement().toString()).packageName();
+            String fieldName = element.getSimpleName().toString();
+            TypeMirror typeMirror = element.asType();
+
+            attributeSet.add(new BindingModelInfo(fieldName, typeMirror, modelName, packageName));
+            BindingModelMap.put(typeElement, attributeSet);
+        }
+
+        return BindingModelMap;
     }
 
     // TODO: 10/13/2018 need to test code

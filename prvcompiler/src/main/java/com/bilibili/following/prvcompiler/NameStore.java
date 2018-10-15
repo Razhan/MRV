@@ -10,6 +10,8 @@ public class NameStore {
     static final String MODEL = "Model";
     static final String BR = "BR";
 
+    static final String VAL = "val";
+
     //lib
     static final String LIB = "com.bilibili.following.prvlibrary";
     static final String VIEWHOLDER = LIB + ".viewholder.ViewHolder";

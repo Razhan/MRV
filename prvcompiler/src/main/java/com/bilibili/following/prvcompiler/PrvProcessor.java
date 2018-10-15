@@ -35,6 +35,7 @@ import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
 import static javax.lang.model.element.Modifier.FINAL;
+import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
@@ -77,6 +78,9 @@ public class PrvProcessor extends AbstractProcessor {
         try {
             generateItemBinder(ProcessUtils.getItemBinderSet(roundEnvironment));
             generateBinder(ProcessUtils.getBinderSet(roundEnvironment));
+            generateBinderModel(ProcessUtils.getBindingModelSet(roundEnvironment));
+
+
         } catch (RuntimeException e) {
             e.printStackTrace();
             messager.printMessage(Diagnostic.Kind.ERROR, "Unexpected error in PrvProcessor: " + e);
@@ -203,6 +207,49 @@ public class PrvProcessor extends AbstractProcessor {
                             .addStatement("$N.setVariable($T.textRes, $N.getTextRes())", "binding",
                                     ClassName.get(ProcessUtils.getRootModuleString(entry.getKey()), NameStore.BR), "bindingModel")
                             .build());
+
+            createFile(packageName, classBuilder);
+        }
+    }
+
+    private void generateBinderModel(Map<TypeElement, Set<BindingModelInfo>> infoMap) {
+        if (infoMap == null || infoMap.isEmpty()) {
+            return;
+        }
+
+        for (Map.Entry<TypeElement, Set<BindingModelInfo>> entry : infoMap.entrySet()) {
+            TypeElement element = entry.getKey();
+            Set<BindingModelInfo> infos = entry.getValue();
+
+            ClassName bindingModel = ClassName.get(element);
+            String packageName = bindingModel.packageName();
+            String modelName = bindingModel.simpleName().concat(NameStore.AUTO_IMPL);
+
+            TypeSpec.Builder classBuilder = TypeSpec.classBuilder(modelName)
+                    .addModifiers(PUBLIC, FINAL)
+                    .addAnnotation(Keep.class)
+                    .superclass(bindingModel);
+
+            for (BindingModelInfo modelInfo : infos) {
+                TypeName attributeClass = ClassName.get(modelInfo.typeMirror);
+                classBuilder.addField(attributeClass, modelInfo.fieldName, PRIVATE);
+
+                MethodSpec setter = MethodSpec.methodBuilder(modelInfo.fieldName)
+                        .addModifiers(PUBLIC)
+                        .returns(void.class)
+                        .addParameter(attributeClass, NameStore.VAL)
+                        .addStatement("this.$N = $N", modelInfo.fieldName, NameStore.VAL)
+                        .build();
+
+                MethodSpec getter = MethodSpec.methodBuilder(modelInfo.fieldName)
+                        .addModifiers(PUBLIC)
+                        .returns(attributeClass)
+                        .addStatement("return $N", modelInfo.fieldName)
+                        .build();
+
+                classBuilder.addMethod(setter)
+                        .addMethod(getter);
+            }
 
             createFile(packageName, classBuilder);
         }
