@@ -8,11 +8,9 @@ import com.bilibili.following.prvannotations.PrvItemBinder;
 import com.bilibili.following.prvcompiler.info.BindingModelInfo;
 import com.bilibili.following.prvcompiler.info.GeneratedModelInfo;
 import com.bilibili.following.prvcompiler.info.ItemBinderInfo;
-import com.bilibili.following.prvcompiler.info.ResourceInfo;
 import com.bilibili.following.prvcompiler.util.NameStore;
 import com.bilibili.following.prvcompiler.util.ProcessUtils;
 import com.bilibili.following.prvcompiler.util.ResourceUtils;
-import com.bilibili.following.prvcompiler.util.StringUtils;
 import com.google.auto.service.AutoService;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
@@ -24,10 +22,7 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.WildcardTypeName;
 
-import org.checkerframework.checker.units.qual.C;
-
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -42,9 +37,6 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
@@ -251,7 +243,7 @@ public class PrvProcessor extends AbstractProcessor {
         TypeSpec.Builder classBuilder = TypeSpec.classBuilder(NameStore.BASE + modelInfo.className)
                 .addModifiers(PUBLIC, ABSTRACT)
                 .addAnnotation(Keep.class)
-                .addSuperinterface(ClassName.bestGuess(NameStore.BINGDING_MODEL));
+                .addSuperinterface(ClassName.bestGuess(NameStore.BINDING_MODEL));
 
         for (BindingModelInfo info : modelInfo.bindingModelInfo) {
             classBuilder.addField(FieldSpec.builder(ClassName.get(info.typeMirror), info.fieldName, PUBLIC)
@@ -306,17 +298,6 @@ public class PrvProcessor extends AbstractProcessor {
         }
     }
 
-    private void createFile(String generatedPackageName, TypeSpec.Builder classBuilder) {
-        try {
-            JavaFile.builder(generatedPackageName,
-                    classBuilder.build())
-                    .build()
-                    .writeTo(filer);
-        } catch (IOException e) {
-            messager.printMessage(ERROR, e.toString());
-        }
-    }
-
     private MethodSpec.Builder singletonMethod(ClassName type) {
         return MethodSpec
                 .methodBuilder("getInstance")
@@ -331,6 +312,17 @@ public class PrvProcessor extends AbstractProcessor {
                 .endControlFlow()
                 .addCode("\n")
                 .addStatement("return $N", "instance");
+    }
+
+    private void createFile(String generatedPackageName, TypeSpec.Builder classBuilder) {
+        try {
+            JavaFile.builder(generatedPackageName,
+                    classBuilder.build())
+                    .build()
+                    .writeTo(filer);
+        } catch (IOException e) {
+            messager.printMessage(ERROR, e.toString());
+        }
     }
 
     @Override

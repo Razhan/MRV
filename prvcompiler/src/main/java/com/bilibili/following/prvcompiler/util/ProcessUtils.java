@@ -19,7 +19,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.RoundEnvironment;
@@ -151,8 +150,6 @@ public class ProcessUtils {
                 attributeSet = new HashSet<>();
             }
 
-            String modelName =  element.getEnclosingElement().getSimpleName().toString();
-            String packageName = getRootModuleString(element.getEnclosingElement());
             String fieldName = element.getSimpleName().toString();
             TypeMirror typeMirror = element.asType();
 
@@ -163,18 +160,18 @@ public class ProcessUtils {
         return BindingModelMap;
     }
 
-    public static ClassName getDataBindingClassNameForResource(ResourceInfo info, String moduleName) {
+    private static ClassName getDataBindingClassNameForResource(ResourceInfo info, String moduleName) {
         String modelName = StringUtils.toUpperCamelCase(info.resourceName).concat(NameStore.BINDING_SUFFIX);
 
         return ClassName.get(moduleName.concat("." + NameStore.DATA_BINDING), modelName);
     }
 
-    public static String getDataBindingClassNameStringForResource(ResourceInfo info) {
+    private static String getDataBindingClassNameStringForResource(ResourceInfo info) {
         String[] strArray = info.resourceName.split("_");
         return StringUtils.toUpperCamelCase(strArray[strArray.length - 1]).concat(NameStore.BINDING_MODEL_SUFFIX);
     }
 
-    public static TypeElement getElementByName(ClassName name) {
+    private static TypeElement getElementByName(ClassName name) {
         String canonicalName = name.reflectionName().replace("$", ".");
         return (TypeElement) getElementByName(canonicalName, elements, types);
     }
@@ -231,9 +228,7 @@ public class ProcessUtils {
         List<TypeName> binders = new ArrayList<>();
         TypeName dataType;
 
-        if (interfaces == null || interfaces.isEmpty()) {
-            hasItemBinderInterface = false;
-        } else {
+        if (interfaces != null && !interfaces.isEmpty()) {
             for (TypeMirror interfaceType : interfaces) {
                 TypeElement interfaceElement = (TypeElement) ((DeclaredType) interfaceType).asElement();
                 if (interfaceElement.toString().equals(NameStore.ITEM_BINDER)) {

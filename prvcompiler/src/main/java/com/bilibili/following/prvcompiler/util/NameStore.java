@@ -24,7 +24,7 @@ public class NameStore {
     public static final String DATA_BINDING_VIEWHOLDER = LIB + ".viewholder.DataBindingViewHolder";
     public static final String BINDER = LIB + ".binder.Binder";
     public static final String ITEM_BINDER = LIB + ".binder.ItemBinder";
-    public static final String BINGDING_MODEL = LIB + ".binder.BindingModel";
+    public static final String BINDING_MODEL = LIB + ".binder.BindingModel";
 
 
     //Android
