@@ -27,6 +27,7 @@ import com.squareup.javapoet.WildcardTypeName;
 import org.checkerframework.checker.units.qual.C;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -44,6 +45,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
@@ -185,6 +187,8 @@ public class PrvProcessor extends AbstractProcessor {
             className = ClassName.get(entry.getKey()).simpleName();
             implClassName = className + NameStore.AUTO_IMPL_SUFFIX;
             String rootPackage = ProcessUtils.getRootModuleString(entry.getKey());
+            ClassName currentClass = ClassName.get(packageName, implClassName);
+
 
             GeneratedModelInfo modelInfo = ProcessUtils.getGeneratedModelInfo(entry.getKey(), ResourceUtils.getLayoutsInAnnotation(entry.getKey(), PrvBinder.class), rootPackage);
 
@@ -209,7 +213,8 @@ public class PrvProcessor extends AbstractProcessor {
                     .addAnnotation(Override.class)
                     .addParameter(binderDataTypeClass, "model")
                     .addParameter(ClassName.bestGuess(NameStore.VIEW_DATA_BINDING), "binding")
-                    .addStatement("$T $N = prepareBindingModel($N)", binderModelTypeClass, "bindingModel", "model");
+                    .addStatement("$T $N = prepareBindingModel($N)", binderModelTypeClass, "bindingModel", "model")
+                    .addCode("\n");
 
             for (BindingModelInfo info: modelInfo.bindingModelInfo) {
                 String field = info.fieldName;
@@ -221,6 +226,8 @@ public class PrvProcessor extends AbstractProcessor {
                     .addModifiers(PUBLIC, FINAL)
                     .addAnnotation(Keep.class)
                     .superclass(ClassName.get(entry.getKey()))
+                    .addField(currentClass, "instance", Modifier.PRIVATE, Modifier.STATIC, Modifier.VOLATILE)
+                    .addMethod(singletonMethod(currentClass).build())
                     .addMethod(MethodSpec.methodBuilder("getViewType")
                             .addModifiers(PUBLIC)
                             .returns(int.class)
@@ -308,6 +315,22 @@ public class PrvProcessor extends AbstractProcessor {
         } catch (IOException e) {
             messager.printMessage(ERROR, e.toString());
         }
+    }
+
+    private MethodSpec.Builder singletonMethod(ClassName type) {
+        return MethodSpec
+                .methodBuilder("getInstance")
+                .addModifiers(PUBLIC, Modifier.STATIC)
+                .returns(type)
+                .beginControlFlow("if ($N == $S)", "instance", null)
+                .beginControlFlow("synchronized ($T.class)", type)
+                .beginControlFlow("if ($N == $S)", "instance", null)
+                .addStatement("$N = new $T()", "instance", type)
+                .endControlFlow()
+                .endControlFlow()
+                .endControlFlow()
+                .addCode("\n")
+                .addStatement("return $N", "instance");
     }
 
     @Override
