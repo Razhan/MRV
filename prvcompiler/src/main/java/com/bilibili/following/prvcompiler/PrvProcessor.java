@@ -2,17 +2,29 @@ package com.bilibili.following.prvcompiler;
 
 import com.bilibili.following.prvannotations.Keep;
 import com.bilibili.following.prvannotations.PrvAdapter;
+import com.bilibili.following.prvannotations.PrvAttribute;
 import com.bilibili.following.prvannotations.PrvBinder;
 import com.bilibili.following.prvannotations.PrvItemBinder;
+import com.bilibili.following.prvcompiler.info.BindingModelInfo;
+import com.bilibili.following.prvcompiler.info.GeneratedModelInfo;
+import com.bilibili.following.prvcompiler.info.ItemBinderInfo;
+import com.bilibili.following.prvcompiler.info.ResourceInfo;
+import com.bilibili.following.prvcompiler.util.NameStore;
+import com.bilibili.following.prvcompiler.util.ProcessUtils;
+import com.bilibili.following.prvcompiler.util.ResourceUtils;
+import com.bilibili.following.prvcompiler.util.StringUtils;
 import com.google.auto.service.AutoService;
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.WildcardTypeName;
+
+import org.checkerframework.checker.units.qual.C;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,11 +41,14 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
+import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
@@ -44,7 +59,6 @@ public class PrvProcessor extends AbstractProcessor {
 
     private Filer filer;
     private Messager messager;
-    private Elements elementUtil;
 
     private ClassName listClass;
 
@@ -54,11 +68,11 @@ public class PrvProcessor extends AbstractProcessor {
 
         filer = processingEnv.getFiler();
         messager = processingEnv.getMessager();
-        elementUtil = processingEnv.getElementUtils();
 
         listClass = ClassName.get(List.class);
 
-        ProcessUtils.init(messager, processingEnvironment.getTypeUtils(), elementUtil);
+        ProcessUtils.init(messager, processingEnvironment.getTypeUtils(), processingEnv.getElementUtils());
+        ResourceUtils.init(processingEnvironment, processingEnv.getElementUtils(), processingEnvironment.getTypeUtils());
     }
 
     @Override
@@ -107,7 +121,7 @@ public class PrvProcessor extends AbstractProcessor {
         for (ItemBinderInfo itemBinder : itemBinderSet) {
             packageName = ClassName.get(itemBinder.itemBinder).packageName();
             className = ClassName.get(itemBinder.itemBinder).simpleName();
-            implClassName = className + NameStore.AUTO_IMPL;
+            implClassName = className + NameStore.AUTO_IMPL_SUFFIX;
 
             itemBinderDataTypeClass = ClassName.bestGuess(itemBinder.dataType.toString());
             WildcardTypeName viewHolderWildcardTypeName = WildcardTypeName.subtypeOf(viewHolderClass);
@@ -127,7 +141,7 @@ public class PrvProcessor extends AbstractProcessor {
 
             for (int i = 0; i < itemBinder.binderList.size(); i++) {
                 TypeName binderName = itemBinder.binderList.get(i);
-                methodBuilder.addCode("new $T()", ClassName.bestGuess(binderName.toString() + NameStore.AUTO_IMPL));
+                methodBuilder.addCode("new $T()", ClassName.bestGuess(binderName.toString() + NameStore.AUTO_IMPL_SUFFIX));
 
                 if (i != itemBinder.binderList.size() - 1) {
                     methodBuilder.addCode(", ");
@@ -169,8 +183,17 @@ public class PrvProcessor extends AbstractProcessor {
         for (Map.Entry<TypeElement, Integer> entry : binderSet.entrySet()) {
             packageName = ClassName.get(entry.getKey()).packageName();
             className = ClassName.get(entry.getKey()).simpleName();
-            implClassName = className + NameStore.AUTO_IMPL;
-            binderModelTypeClass = ClassName.bestGuess(entry.getKey().toString() + NameStore.MODEL);
+            implClassName = className + NameStore.AUTO_IMPL_SUFFIX;
+            String rootPackage = ProcessUtils.getRootModuleString(entry.getKey());
+
+            GeneratedModelInfo modelInfo = ProcessUtils.getGeneratedModelInfo(entry.getKey(), ResourceUtils.getLayoutsInAnnotation(entry.getKey(), PrvBinder.class), rootPackage);
+
+            if (modelInfo == null) {
+                return;
+            }
+
+            binderModelTypeClass =  ClassName.get(modelInfo.packageName, modelInfo.className);
+            generateAnnotatedBinderModel(modelInfo);
 
             List<? extends TypeMirror> types = ProcessUtils.getClassGenericTypes(entry.getKey());
             if (types == null || types.isEmpty()) {
@@ -204,12 +227,27 @@ public class PrvProcessor extends AbstractProcessor {
                             .addParameter(binderDataTypeClass, "model")
                             .addParameter(ClassName.bestGuess(NameStore.VIEW_DATA_BINDING), "binding")
                             .addStatement("$T $N = prepareBindingModel($N)", binderModelTypeClass, "bindingModel", "model")
-                            .addStatement("$N.setVariable($T.textRes, $N.getTextRes())", "binding",
-                                    ClassName.get(ProcessUtils.getRootModuleString(entry.getKey()), NameStore.BR), "bindingModel")
+                            .addStatement("$N.setVariable($T.textRes, $N.textRes())", "binding",
+                                    ClassName.get(rootPackage, NameStore.BR), "bindingModel")
                             .build());
 
             createFile(packageName, classBuilder);
         }
+    }
+
+    private void generateAnnotatedBinderModel(GeneratedModelInfo modelInfo) {
+        TypeSpec.Builder classBuilder = TypeSpec.classBuilder(NameStore.BASE + modelInfo.className)
+                .addModifiers(PUBLIC, ABSTRACT)
+                .addAnnotation(Keep.class)
+                .addSuperinterface(ClassName.bestGuess(NameStore.BINGDING_MODEL));
+
+        for (BindingModelInfo info : modelInfo.bindingModelInfo) {
+            classBuilder.addField(FieldSpec.builder(ClassName.get(info.typeMirror), info.fieldName, PUBLIC)
+                    .addAnnotation(PrvAttribute.class)
+                    .build());
+        }
+
+        createFile(modelInfo.packageName, classBuilder);
     }
 
     private void generateBinderModel(Map<TypeElement, Set<BindingModelInfo>> infoMap) {
@@ -219,26 +257,27 @@ public class PrvProcessor extends AbstractProcessor {
 
         for (Map.Entry<TypeElement, Set<BindingModelInfo>> entry : infoMap.entrySet()) {
             TypeElement element = entry.getKey();
-            Set<BindingModelInfo> infos = entry.getValue();
+            Set<BindingModelInfo> infoSet = entry.getValue();
 
             ClassName bindingModel = ClassName.get(element);
             String packageName = bindingModel.packageName();
-            String modelName = bindingModel.simpleName().concat(NameStore.AUTO_IMPL);
+            String modelName = bindingModel.simpleName().replaceFirst(NameStore.BASE, "");
 
             TypeSpec.Builder classBuilder = TypeSpec.classBuilder(modelName)
                     .addModifiers(PUBLIC, FINAL)
                     .addAnnotation(Keep.class)
                     .superclass(bindingModel);
 
-            for (BindingModelInfo modelInfo : infos) {
+            for (BindingModelInfo modelInfo : infoSet) {
                 TypeName attributeClass = ClassName.get(modelInfo.typeMirror);
                 classBuilder.addField(attributeClass, modelInfo.fieldName, PRIVATE);
 
                 MethodSpec setter = MethodSpec.methodBuilder(modelInfo.fieldName)
                         .addModifiers(PUBLIC)
-                        .returns(void.class)
+                        .returns(ClassName.get(packageName, modelName))
                         .addParameter(attributeClass, NameStore.VAL)
                         .addStatement("this.$N = $N", modelInfo.fieldName, NameStore.VAL)
+                        .addStatement("return this")
                         .build();
 
                 MethodSpec getter = MethodSpec.methodBuilder(modelInfo.fieldName)

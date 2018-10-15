@@ -1,4 +1,4 @@
-package com.bilibili.following.prvcompiler;
+package com.bilibili.following.prvcompiler.info;
 
 import com.squareup.javapoet.TypeName;
 

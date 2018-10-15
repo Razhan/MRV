@@ -6,9 +6,6 @@ import com.bilibili.following.prv.model.ColorNamePrimitive;
 import com.bilibili.following.prv.model.Primitive;
 import com.bilibili.following.prvannotations.PrvAdapter;
 import com.bilibili.following.prvlibrary.BasePrvAdapter;
-import com.bilibili.following.prvlibrary.binder.Binder;
-import com.bilibili.following.prvlibrary.binder.ItemBinder;
-import com.bilibili.following.prvlibrary.viewholder.ViewHolder;
 
 @PrvAdapter
 public class PrimitiveAdapter extends BasePrvAdapter<Primitive> {

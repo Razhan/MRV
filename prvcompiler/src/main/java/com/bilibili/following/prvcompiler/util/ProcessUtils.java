@@ -1,24 +1,31 @@
-package com.bilibili.following.prvcompiler;
+package com.bilibili.following.prvcompiler.util;
 
 import com.bilibili.following.prvannotations.None;
 import com.bilibili.following.prvannotations.PrvAttribute;
 import com.bilibili.following.prvannotations.PrvBinder;
 import com.bilibili.following.prvannotations.PrvItemBinder;
+import com.bilibili.following.prvcompiler.info.BindingModelInfo;
+import com.bilibili.following.prvcompiler.info.GeneratedModelInfo;
+import com.bilibili.following.prvcompiler.info.ItemBinderInfo;
+import com.bilibili.following.prvcompiler.info.ResourceInfo;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeName;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -32,20 +39,24 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
+import static com.bilibili.following.prvcompiler.util.StringUtils.PATTERN_STARTS_WITH_SET;
+
 public class ProcessUtils {
 
     private static Messager messager;
     private static Types types;
     private static Elements elements;
 
-    static void init(Messager msger, Types typeUtils, Elements elementUtils) {
+    private static List<String> excludedFields = new ArrayList<>(Arrays.asList("lifecycleOwner"));
+
+    public static void init(Messager msger, Types typeUtils, Elements elementUtils) {
         messager = msger;
         types = typeUtils;
         elements = elementUtils;
     }
 
     @SuppressWarnings("ConstantConditions")
-    static Set<ItemBinderInfo> getItemBinderSet(RoundEnvironment env) {
+    public static Set<ItemBinderInfo> getItemBinderSet(RoundEnvironment env) {
         Set<ItemBinderInfo> itemBinderSet = new LinkedHashSet<>();
 
         for (Element element : env.getElementsAnnotatedWith(PrvItemBinder.class)) {
@@ -59,7 +70,7 @@ public class ProcessUtils {
         return itemBinderSet;
     }
 
-    static Map<TypeElement, Integer> getBinderSet(RoundEnvironment env) {
+    public static Map<TypeElement, Integer> getBinderSet(RoundEnvironment env) {
         Map<TypeElement, Integer> binderSet = new HashMap<>();
 
         for (Element element : env.getElementsAnnotatedWith(PrvBinder.class)) {
@@ -77,7 +88,7 @@ public class ProcessUtils {
         return binderSet;
     }
 
-    static List<? extends TypeMirror> getClassGenericTypes(TypeElement element) {
+    public static List<? extends TypeMirror> getClassGenericTypes(TypeElement element) {
         TypeElement typeElement = element;
         List<? extends TypeMirror> typeMirrors;
 
@@ -104,7 +115,7 @@ public class ProcessUtils {
         return typeMirrors;
     }
 
-    static String getRootModuleString(Element element) {
+    public static String getRootModuleString(Element element) {
         PackageElement packageOf = elements.getPackageOf(element);
         String packageName = packageOf.getQualifiedName().toString() ;
 
@@ -124,7 +135,7 @@ public class ProcessUtils {
         return null;
     }
 
-    static Map<TypeElement, Set<BindingModelInfo>> getBindingModelSet(RoundEnvironment env) {
+    public static Map<TypeElement, Set<BindingModelInfo>> getBindingModelSet(RoundEnvironment env) {
         Map<TypeElement, Set<BindingModelInfo>> BindingModelMap = new HashMap<>();
 
         for (Element element : env.getElementsAnnotatedWith(PrvAttribute.class)) {
@@ -140,16 +151,75 @@ public class ProcessUtils {
                 attributeSet = new HashSet<>();
             }
 
-            String modelName  = element.getEnclosingElement().getSimpleName().toString();
-            String packageName = ClassName.bestGuess(element.getEnclosingElement().toString()).packageName();
+            String modelName =  element.getEnclosingElement().getSimpleName().toString();
+            String packageName = getRootModuleString(element.getEnclosingElement());
             String fieldName = element.getSimpleName().toString();
             TypeMirror typeMirror = element.asType();
 
-            attributeSet.add(new BindingModelInfo(fieldName, typeMirror, modelName, packageName));
+            attributeSet.add(new BindingModelInfo(fieldName, typeMirror));
             BindingModelMap.put(typeElement, attributeSet);
         }
 
         return BindingModelMap;
+    }
+
+    public static ClassName getDataBindingClassNameForResource(ResourceInfo info, String moduleName) {
+        String modelName = StringUtils.toUpperCamelCase(info.resourceName).concat(NameStore.BINDING_SUFFIX);
+
+        return ClassName.get(moduleName.concat("." + NameStore.DATA_BINDING), modelName);
+    }
+
+    public static String getDataBindingClassNameStringForResource(ResourceInfo info) {
+        String[] strArray = info.resourceName.split("_");
+        return StringUtils.toUpperCamelCase(strArray[strArray.length - 1]).concat(NameStore.BINDING_MODEL_SUFFIX);
+    }
+
+    public static TypeElement getElementByName(ClassName name) {
+        String canonicalName = name.reflectionName().replace("$", ".");
+        return (TypeElement) getElementByName(canonicalName, elements, types);
+    }
+
+    public static boolean isSetterMethod(Element element) {
+        if (element.getKind() != ElementKind.METHOD) {
+            return false;
+        }
+
+        ExecutableElement method = (ExecutableElement) element;
+        String methodName = method.getSimpleName().toString();
+
+        return !excludedFields.contains(methodName) && PATTERN_STARTS_WITH_SET.matcher(methodName).matches()
+                && method.getParameters().size() == 1;
+    }
+
+    public static GeneratedModelInfo getGeneratedModelInfo(TypeElement typeElement, ResourceInfo resource, String rootPackage) {
+
+        ClassName dataBindingClassName = getDataBindingClassNameForResource(resource, rootPackage);
+        TypeElement dataBinding = getElementByName(dataBindingClassName);
+
+        //第一轮解析dataBinding为null
+        if (dataBinding == null) {
+            return null;
+        }
+
+        GeneratedModelInfo modelInfo = new GeneratedModelInfo();
+        modelInfo.setPackageName(ClassName.get(typeElement).packageName());
+        modelInfo.setClassName(ProcessUtils.getDataBindingClassNameStringForResource(resource));
+
+        List<BindingModelInfo> bindingModelInfo = new ArrayList<>();
+        for (Element element: dataBinding.getEnclosedElements()) {
+            if (element.getKind() != ElementKind.METHOD) {
+                continue;
+            }
+
+            if (ProcessUtils.isSetterMethod(element)) {
+                String name = StringUtils.removeSetPrefix(element.getSimpleName().toString());
+                TypeMirror typeMirror = ((ExecutableElement) element).getParameters().get(0).asType();
+                bindingModelInfo.add(new BindingModelInfo(name, typeMirror));
+            }
+        }
+
+        modelInfo.setBindingModelInfo(bindingModelInfo);
+        return modelInfo;
     }
 
     // TODO: 10/13/2018 need to test code
