@@ -4,6 +4,10 @@
         <variable
             name="textRes"
             type="String" />
+
+        <variable
+            name="colorInt"
+            type="int" />
     </data>
 
     <Button

@@ -203,6 +203,20 @@ public class PrvProcessor extends AbstractProcessor {
 
             binderDataTypeClass = ClassName.bestGuess(types.get(0).toString());
 
+            MethodSpec.Builder methodSpecBuilder = MethodSpec.methodBuilder("setDataBindingVariables")
+                    .addModifiers(PUBLIC)
+                    .returns(void.class)
+                    .addAnnotation(Override.class)
+                    .addParameter(binderDataTypeClass, "model")
+                    .addParameter(ClassName.bestGuess(NameStore.VIEW_DATA_BINDING), "binding")
+                    .addStatement("$T $N = prepareBindingModel($N)", binderModelTypeClass, "bindingModel", "model");
+
+            for (BindingModelInfo info: modelInfo.bindingModelInfo) {
+                String field = info.fieldName;
+                methodSpecBuilder.addStatement("$N.setVariable($T.$N, $N.$N())", "binding",
+                        ClassName.get(rootPackage, NameStore.BR), field, "bindingModel", field);
+            }
+
             TypeSpec.Builder classBuilder = TypeSpec.classBuilder(implClassName)
                     .addModifiers(PUBLIC, FINAL)
                     .addAnnotation(Keep.class)
@@ -220,16 +234,7 @@ public class PrvProcessor extends AbstractProcessor {
                             .addParameter(ClassName.bestGuess(NameStore.VIEW_GROUP), "parent")
                             .addStatement("return new $T(buildView($N))", dataBindingViewHolderClass, "parent")
                             .build())
-                    .addMethod(MethodSpec.methodBuilder("setDataBindingVariables")
-                            .addModifiers(PUBLIC)
-                            .returns(void.class)
-                            .addAnnotation(Override.class)
-                            .addParameter(binderDataTypeClass, "model")
-                            .addParameter(ClassName.bestGuess(NameStore.VIEW_DATA_BINDING), "binding")
-                            .addStatement("$T $N = prepareBindingModel($N)", binderModelTypeClass, "bindingModel", "model")
-                            .addStatement("$N.setVariable($T.textRes, $N.textRes())", "binding",
-                                    ClassName.get(rootPackage, NameStore.BR), "bindingModel")
-                            .build());
+                    .addMethod(methodSpecBuilder.build());
 
             createFile(packageName, classBuilder);
         }

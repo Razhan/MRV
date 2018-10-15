@@ -15,6 +15,8 @@ public abstract class TextBinder extends DataBindingBinder<ColorNamePrimitive, D
     @NonNull
     @Override
     protected ButtonBindingModel prepareBindingModel(ColorNamePrimitive model) {
-        return new ButtonBindingModel().textRes(model.getString());
+        return new ButtonBindingModel()
+                .textRes(model.getString())
+                .colorInt(model.getColor());
     }
 }
