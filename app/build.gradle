@@ -35,4 +35,7 @@ dependencies {
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
     implementation project(':prvlib')
     annotationProcessor project(':prvcompiler')
+
+    annotationProcessor 'com.jakewharton:butterknife-compiler:9.0.0-rc1'
+
 }

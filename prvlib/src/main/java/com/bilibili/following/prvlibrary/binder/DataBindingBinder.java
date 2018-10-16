@@ -12,7 +12,8 @@ import com.bilibili.following.prvlibrary.viewholder.ViewHolder;
 
 import java.util.List;
 
-public abstract class DataBindingBinder<T, VH extends DataBindingViewHolder, BM extends BindingModel> implements Binder<T, VH> {
+public abstract class DataBindingBinder<T, VH extends DataBindingViewHolder, BM extends BindingModel>
+        implements Binder<T, VH> {
 
     protected View buildView(@NonNull ViewGroup parent) {
         LayoutInflater layoutInflater = LayoutInflater.from(parent.getContext());
@@ -42,8 +43,11 @@ public abstract class DataBindingBinder<T, VH extends DataBindingViewHolder, BM 
 
     }
 
-    //从真实数据模型中抽取需要展示的数据，轻量数据操作
-    //解耦数据解析与渲染逻辑
+    /**
+     * 从真实数据模型中抽取需要展示的数据，轻量数据操作
+     * 解耦数据解析与渲染逻辑
+     * Best Practice 对象重新赋值，不用new新对象
+     */
     @NonNull
     protected abstract BM prepareBindingModel(T model);
 

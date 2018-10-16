@@ -6,8 +6,7 @@ public class NameStore {
 
     public static final String BASE = "Base";
 
-    public static final String AUTO_IMPL_SUFFIX = "$Impl";
-    public static final String IMPL_SUFFIX = "Impl";
+    public static final String AUTO_IMPL_SUFFIX = "Impl";
 
     public static final String MODEL = "Model";
     public static final String BR = "BR";
@@ -25,6 +24,7 @@ public class NameStore {
     public static final String BINDER = LIB + ".binder.Binder";
     public static final String ITEM_BINDER = LIB + ".binder.ItemBinder";
     public static final String BINDING_MODEL = LIB + ".binder.BindingModel";
+    public static final String DATABINDING_BINDER = LIB + ".binder.DataBindingBinder";
 
 
     //Android

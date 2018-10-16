@@ -160,34 +160,6 @@ public class ProcessUtils {
         return BindingModelMap;
     }
 
-    private static ClassName getDataBindingClassNameForResource(ResourceInfo info, String moduleName) {
-        String modelName = StringUtils.toUpperCamelCase(info.resourceName).concat(NameStore.BINDING_SUFFIX);
-
-        return ClassName.get(moduleName.concat("." + NameStore.DATA_BINDING), modelName);
-    }
-
-    private static String getDataBindingClassNameStringForResource(ResourceInfo info) {
-        String[] strArray = info.resourceName.split("_");
-        return StringUtils.toUpperCamelCase(strArray[strArray.length - 1]).concat(NameStore.BINDING_MODEL_SUFFIX);
-    }
-
-    private static TypeElement getElementByName(ClassName name) {
-        String canonicalName = name.reflectionName().replace("$", ".");
-        return (TypeElement) getElementByName(canonicalName, elements, types);
-    }
-
-    public static boolean isSetterMethod(Element element) {
-        if (element.getKind() != ElementKind.METHOD) {
-            return false;
-        }
-
-        ExecutableElement method = (ExecutableElement) element;
-        String methodName = method.getSimpleName().toString();
-
-        return !excludedFields.contains(methodName) && PATTERN_STARTS_WITH_SET.matcher(methodName).matches()
-                && method.getParameters().size() == 1;
-    }
-
     public static GeneratedModelInfo getGeneratedModelInfo(TypeElement typeElement, ResourceInfo resource, String rootPackage) {
 
         ClassName dataBindingClassName = getDataBindingClassNameForResource(resource, rootPackage);
@@ -217,6 +189,129 @@ public class ProcessUtils {
 
         modelInfo.setBindingModelInfo(bindingModelInfo);
         return modelInfo;
+    }
+
+    public static boolean isDataBindingBinder(TypeElement element) {
+        TypeElement binderElement = element;
+
+        while (true) {
+            TypeMirror superClass = binderElement.getSuperclass();
+            if (superClass.getKind() == TypeKind.NONE) {
+                return false;
+            }
+
+            TypeElement parentElement = (TypeElement) ((DeclaredType) superClass).asElement();
+
+            if (parentElement.toString().equals(NameStore.DATABINDING_BINDER)) {
+                return true;
+            } else {
+                binderElement = parentElement;
+            }
+        }
+    }
+
+    public static List<String> getOverrideMethodNames(TypeElement interfaceElement, TypeElement classElement) {
+        List<String> interfaceMethods  = new ArrayList<>();
+        for (Element element :  interfaceElement.getEnclosedElements()) {
+            if (element.asType() instanceof ExecutableType) {
+                interfaceMethods.add(element.getSimpleName().toString());
+            }
+        }
+
+        List<String> overrideMethods  = new ArrayList<>();
+
+
+        while (true) {
+            TypeMirror superClass = classElement.getSuperclass();
+            if (superClass.getKind() == TypeKind.NONE) {
+                break;
+            }
+
+            for (Element element : classElement.getEnclosedElements()) {
+                if (element.asType() instanceof ExecutableType && element.getAnnotation(Override.class) != null) {
+                    overrideMethods.add(element.getSimpleName().toString());
+                }
+            }
+
+            classElement = (TypeElement) ((DeclaredType) superClass).asElement();
+        }
+
+        List<String> res  = new ArrayList<>();
+        for (String method : overrideMethods) {
+            if (interfaceMethods.contains(method)) {
+                res.add(method);
+            }
+        }
+
+        return res;
+    }
+
+    // TODO: 10/16/18 简化逻辑用方法名判断，可能出现其他接口有相同方法名，所以注意方法名不可以相同
+    public static List<String> getUnOverrideMethodNames(TypeElement interfaceElement, TypeElement classElement) {
+        List<String> interfaceMethods  = new ArrayList<>();
+        for (Element element :  interfaceElement.getEnclosedElements()) {
+            if (element.asType() instanceof ExecutableType) {
+                interfaceMethods.add(element.getSimpleName().toString());
+            }
+        }
+
+        List<String> overrideMethods  = new ArrayList<>();
+
+
+        while (true) {
+            TypeMirror superClass = classElement.getSuperclass();
+            if (superClass.getKind() == TypeKind.NONE) {
+                break;
+            }
+
+            for (Element element : classElement.getEnclosedElements()) {
+                if (element.asType() instanceof ExecutableType && element.getAnnotation(Override.class) != null) {
+                    overrideMethods.add(element.getSimpleName().toString());
+                }
+            }
+
+            classElement = (TypeElement) ((DeclaredType) superClass).asElement();
+        }
+
+        List<String> res  = new ArrayList<>();
+        for (String method : overrideMethods) {
+            if (interfaceMethods.contains(method)) {
+                res.add(method);
+            }
+        }
+
+        interfaceMethods.removeAll(res);
+
+        return interfaceMethods;
+    }
+
+
+    private static ClassName getDataBindingClassNameForResource(ResourceInfo info, String moduleName) {
+        String modelName = StringUtils.toUpperCamelCase(info.resourceName).concat(NameStore.BINDING_SUFFIX);
+
+        return ClassName.get(moduleName.concat("." + NameStore.DATA_BINDING), modelName);
+    }
+
+    private static String getDataBindingClassNameStringForResource(ResourceInfo info) {
+        String[] strArray = info.resourceName.split("_");
+        return StringUtils.toUpperCamelCase(strArray[strArray.length - 1]).concat(NameStore.BINDING_MODEL_SUFFIX);
+    }
+
+    private static TypeElement getElementByName(ClassName name) {
+        String canonicalName = name.reflectionName().replace("$", ".");
+        return (TypeElement) getElementByName(canonicalName, elements, types);
+    }
+
+    private static boolean isSetterMethod(Element element) {
+        if (element.getKind() != ElementKind.METHOD) {
+            return false;
+        }
+
+        ExecutableElement method = (ExecutableElement) element;
+        String methodName = method.getSimpleName().toString();
+
+        return !excludedFields.contains(methodName) && PATTERN_STARTS_WITH_SET.matcher(methodName).matches()
+                && method.getParameters().size() == 1;
     }
 
     // TODO: 10/13/2018 need to test code
@@ -278,42 +373,6 @@ public class ProcessUtils {
         } catch (MirroredTypeException mte) {
             return types.asElement(mte.getTypeMirror());
         }
-    }
-
-    private static List<String> getOverrideMethodNames(TypeElement interfaceElement, TypeElement classElement) {
-        List<String> interfaceMethods  = new ArrayList<>();
-        for (Element element :  interfaceElement.getEnclosedElements()) {
-            if (element.asType() instanceof ExecutableType) {
-                interfaceMethods.add(element.getSimpleName().toString());
-            }
-        }
-
-        List<String> overrideMethods  = new ArrayList<>();
-
-
-        while (true) {
-            TypeMirror superClass = classElement.getSuperclass();
-            if (superClass.getKind() == TypeKind.NONE) {
-                break;
-            }
-
-            for (Element element : classElement.getEnclosedElements()) {
-                if (element.asType() instanceof ExecutableType && element.getAnnotation(Override.class) != null) {
-                    overrideMethods.add(element.getSimpleName().toString());
-                }
-            }
-
-            classElement = (TypeElement) ((DeclaredType) superClass).asElement();
-        }
-
-        List<String> res  = new ArrayList<>();
-        for (String method : overrideMethods) {
-            if (interfaceMethods.contains(method)) {
-                res.add(method);
-            }
-        }
-
-        return res;
     }
 
 }
