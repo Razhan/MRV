@@ -348,7 +348,9 @@ public class PrvProcessor extends AbstractProcessor {
                         .returns(viewHolderClass)
                         .addAnnotation(Override.class)
                         .addParameter(ClassName.bestGuess(NameStore.VIEW_GROUP), "parent")
-                        .addStatement("return new $T($N)", viewHolderClass, "parent")
+                        .addStatement("return new $T($T.from($N.getContext()).inflate($L, $N, $L))",
+                                viewHolderClass, ClassName.bestGuess(NameStore.LAYOUTINFLATER), "parent",
+                                resource, "parent", false)
                         .build());
 
 

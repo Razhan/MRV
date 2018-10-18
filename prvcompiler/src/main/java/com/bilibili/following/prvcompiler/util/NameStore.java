@@ -33,5 +33,6 @@ public class NameStore {
     public static final String VIEW_GROUP = "android.view.ViewGroup";
     public static final String NONNULL = "android.support.annotation.NonNull";
     public static final String VIEW_DATA_BINDING = "android.databinding.ViewDataBinding";
+    public static final String LAYOUTINFLATER = "android.view.LayoutInflater";
 
 }
