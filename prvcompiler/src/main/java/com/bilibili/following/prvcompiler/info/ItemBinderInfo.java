@@ -10,7 +10,7 @@ public class ItemBinderInfo {
     //当前类
     public TypeElement itemBinder;
     //对应Binder类型
-    public List<TypeName> binderList;
+    public List<TypeElement> binderList;
     //对应绑定数据类型
     public TypeName dataType;
     //是否继承自父类
@@ -18,7 +18,7 @@ public class ItemBinderInfo {
     //父类已实现ItemBinder接口中的方法名
     public List<String> implementedMethodList;
 
-    public ItemBinderInfo(TypeElement itemBinder, TypeName dataType, List<TypeName> binderList,
+    public ItemBinderInfo(TypeElement itemBinder, TypeName dataType, List<TypeElement> binderList,
                           boolean hasParentClass, List<String> implementedMethodList) {
         this.itemBinder = itemBinder;
         this.binderList = binderList;

@@ -15,6 +15,7 @@ public class NameStore {
     public static final String BINDING_SUFFIX = "Binding";
     public static final String BINDING_MODEL_SUFFIX = "BindingModel";
     public static final String DATA_BINDING = "databinding";
+    public static final String ADAPTER_NAME = "Base%sPrvAdapter";
 
 
     //lib
@@ -25,6 +26,7 @@ public class NameStore {
     public static final String ITEM_BINDER = LIB + ".binder.ItemBinder";
     public static final String BINDING_MODEL = LIB + ".binder.BindingModel";
     public static final String DATABINDING_BINDER = LIB + ".binder.DataBindingBinder";
+    public static final String ADAPTER = LIB + ".BasePrvAdapter";
 
 
     //Android

@@ -2,7 +2,7 @@ package com.bilibili.following.prv.model;
 
 import android.support.annotation.ColorRes;
 
-public class ColorNamePrimitive implements Primitive.Color, Primitive.Text {
+public class ColorNamePrimitive extends Primitive {
 	@ColorRes
 	private int color;
 

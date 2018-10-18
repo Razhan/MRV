@@ -1,5 +1,6 @@
 package com.bilibili.following.prvlibrary;
 
+import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.util.ArrayMap;
@@ -75,9 +76,13 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
         }
     }
 
-    protected void register(@NonNull final Class<? extends T> modelType,
-                            @NonNull final ItemBinder<? extends T, ? extends Binder> parts) {
+    protected void registerItemBinder(@NonNull final Class<? extends T> modelType,
+                                      @NonNull final ItemBinder<? extends T, ? extends Binder> parts) {
         mItemBinderMap.put(modelType, parts);
+    }
+
+    protected void registerBinder(@LayoutRes int type, Binder binder) {
+        mBinderInfo.put(type, binder);
     }
 
     public void add(@NonNull final T item) {

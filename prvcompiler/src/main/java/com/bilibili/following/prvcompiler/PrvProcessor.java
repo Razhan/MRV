@@ -5,6 +5,7 @@ import com.bilibili.following.prvannotations.PrvAdapter;
 import com.bilibili.following.prvannotations.PrvAttribute;
 import com.bilibili.following.prvannotations.PrvBinder;
 import com.bilibili.following.prvannotations.PrvItemBinder;
+import com.bilibili.following.prvcompiler.info.AdapterInfo;
 import com.bilibili.following.prvcompiler.info.BindingModelInfo;
 import com.bilibili.following.prvcompiler.info.GeneratedModelInfo;
 import com.bilibili.following.prvcompiler.info.ItemBinderInfo;
@@ -38,11 +39,8 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -95,8 +93,14 @@ public class PrvProcessor extends AbstractProcessor {
         }
 
         try {
-            generateItemBinder(ProcessUtils.getItemBinderSet(roundEnvironment));
-            generateBinder(ProcessUtils.getBinderSet(roundEnvironment));
+            Set<ItemBinderInfo> itemBinderInfoSet = ProcessUtils.getItemBinderSet(roundEnvironment);
+            Map<TypeElement, Integer> binderMap = ProcessUtils.getBinderMap(roundEnvironment);
+            Map<TypeElement, TypeElement> adapterList = ProcessUtils.getAdapterList(roundEnvironment);
+
+            generateItemBinder(itemBinderInfoSet);
+            generateBinder(binderMap);
+            generateAdapter(adapterList, itemBinderInfoSet);
+
             generateBinderModel(ProcessUtils.getBindingModelSet(roundEnvironment));
         } catch (RuntimeException e) {
             e.printStackTrace();
@@ -104,6 +108,51 @@ public class PrvProcessor extends AbstractProcessor {
         }
 
         return true;
+    }
+
+    //生成Adapter实现基类
+    private void generateAdapter(Map<TypeElement, TypeElement> adapterList, Set<ItemBinderInfo> itemBinderInfoSet) {
+        if (adapterList == null || adapterList.size() <= 0 || itemBinderInfoSet == null || itemBinderInfoSet.size() <= 0) {
+            return;
+        }
+
+        List<AdapterInfo> adapterInfoList = ProcessUtils.getAdapterInfoList(adapterList, itemBinderInfoSet);
+
+        for (AdapterInfo adapterInfo : adapterInfoList) {
+            String packageName = ClassName.get(adapterInfo.adapter).packageName();
+            String baseTypeName = adapterInfo.dataType.getSimpleName().toString();
+            String className = String.format(NameStore.ADAPTER_NAME, baseTypeName);
+            ClassName baseAdapterClass = ClassName.bestGuess(NameStore.ADAPTER);
+
+            TypeName superAdapter = ParameterizedTypeName.get(baseAdapterClass, ClassName.get(adapterInfo.dataType));
+
+            MethodSpec.Builder builder = MethodSpec.constructorBuilder()
+                    .addModifiers(PUBLIC)
+                    .addStatement("super()")
+                    .addCode("\n");
+
+            for (ItemBinderInfo itemBinderInfo : adapterInfo.itemBinderInfoList) {
+                ClassName implItemBinder = ClassName.bestGuess(itemBinderInfo.itemBinder.toString().concat(NameStore.AUTO_IMPL_SUFFIX));
+                builder.addStatement("registerItemBinder($T.class, new $T())", itemBinderInfo.dataType, implItemBinder);
+            }
+
+            builder.addCode("\n");
+
+            for (TypeElement binder : adapterInfo.binderList) {
+                ClassName implBinder = ClassName.bestGuess(binder.toString().concat(NameStore.AUTO_IMPL_SUFFIX));
+                builder.addStatement("registerBinder($L, $T.getInstance())", binder.getAnnotation(PrvBinder.class).value(), implBinder);
+            }
+
+            //生成的抽象类命为BaseXXXXPrvAdapter, XXXX为数据基类类型
+            TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className)
+                    .addModifiers(PUBLIC, ABSTRACT)
+                    .addAnnotation(Keep.class)
+                    .superclass(superAdapter)
+                    .addMethod(builder.build());
+
+
+            createFile(packageName, classBuilder);
+        }
     }
 
     //生成ItemBinder实现类
@@ -144,7 +193,7 @@ public class PrvProcessor extends AbstractProcessor {
                     .addCode("return new $T<>($T.asList(", ArrayList.class, Arrays.class);
 
             for (int i = 0; i < itemBinder.binderList.size(); i++) {
-                TypeName binderName = itemBinder.binderList.get(i);
+                TypeElement binderName = itemBinder.binderList.get(i);
                 methodBuilder.addCode("$T.getInstance()", ClassName.bestGuess(binderName.toString() + NameStore.AUTO_IMPL_SUFFIX));
 
                 if (i != itemBinder.binderList.size() - 1) {
@@ -173,6 +222,10 @@ public class PrvProcessor extends AbstractProcessor {
 
     //生成Binder实现类 分2种情况
     private void generateBinder(Map<TypeElement, Integer> binderMap) {
+        if (binderMap == null || binderMap.size() <= 0) {
+            return;
+        }
+
         for (Map.Entry<TypeElement, Integer> entry : binderMap.entrySet()) {
             if (ProcessUtils.isDataBindingBinder(entry.getKey())) {
                 generateDataBindingBinder(entry.getKey(), entry.getValue());
