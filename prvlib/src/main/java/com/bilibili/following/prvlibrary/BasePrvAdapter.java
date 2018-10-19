@@ -4,6 +4,7 @@ import android.support.annotation.LayoutRes;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.util.ArrayMap;
+import android.support.v4.util.Pair;
 import android.support.v7.widget.RecyclerView;
 import android.util.SparseArray;
 import android.view.ViewGroup;
@@ -15,6 +16,7 @@ import com.bilibili.following.prvlibrary.viewholder.ViewHolder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 
 public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder> {
 
@@ -27,16 +29,16 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
     @NonNull
     private List<Integer> mItemPositionToFirstViewHolderPositionCache;
     @NonNull
-    protected ArrayMap<Class<? extends T>, ItemBinder<? extends T, ? extends Binder>> mItemBinderMap;
+    private ArrayMap<Class<? extends T>, ItemBinder<? extends T, ? extends Binder>> mItemBinderMap;
     @NonNull
-    protected SparseArray<Binder<? extends T, ? extends ViewHolder>> mBinderInfo;
+    private SparseArray<Binder<? extends T, ? extends ViewHolder>> mBinderList;
 
     protected BasePrvAdapter() {
         mBinderListCache = new SparseArray<>();
         mViewHolderToItemPositionCache = new ArrayList<>();
         mItemPositionToFirstViewHolderPositionCache = new ArrayList<>();
         mItemBinderMap = new ArrayMap<>();
-        mBinderInfo = new SparseArray<>();
+        mBinderList = new SparseArray<>();
     }
 
     @Override
@@ -63,7 +65,7 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull final ViewGroup parent, final int viewType) {
-        return mBinderInfo.get(viewType).create(parent);
+        return mBinderList.get(viewType).create(parent);
     }
 
     @Override
@@ -76,13 +78,25 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
         }
     }
 
+    @Override
+    public void onViewRecycled(@NonNull ViewHolder holder) {
+        super.onViewRecycled(holder);
+
+        final BinderResult<? extends T> result = computeItemAndBinderIndex(holder.getAdapterPosition());
+        final Binder binder = result.getBinder();
+
+        if (binder != null && holder.getItemViewType() == binder.getViewType()) {
+            binder.unbind(holder);
+        }
+    }
+
     protected void registerItemBinder(@NonNull final Class<? extends T> modelType,
                                       @NonNull final ItemBinder<? extends T, ? extends Binder> parts) {
         mItemBinderMap.put(modelType, parts);
     }
 
-    protected void registerBinder(@LayoutRes int type, Binder binder) {
-        mBinderInfo.put(type, binder);
+    protected void registerBinder(@LayoutRes int type, Binder<? extends T, ? extends ViewHolder> binder) {
+        mBinderList.put(type, binder);
     }
 
     public void add(@NonNull final T item) {
@@ -107,6 +121,7 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
             itemPositions.add(position);
         }
 
+        // TODO: 10/19/18 O(n)操作 需优化
         mViewHolderToItemPositionCache.addAll(numViewHolders, itemPositions);
         for (int viewHolderIndex = numViewHolders + binders.size(); viewHolderIndex < mViewHolderToItemPositionCache.size();
              viewHolderIndex++) {
@@ -118,6 +133,89 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
             mItemPositionToFirstViewHolderPositionCache.set(itemIndex,
                     mItemPositionToFirstViewHolderPositionCache.get(itemIndex) + binders.size());
         }
+    }
+
+    public T remove(final int itemPosition) {
+        T item;
+
+        if (isItemPositionWithinBounds(itemPosition)) {
+            final int numViewHolders = getViewHolderCount(itemPosition);
+            item = mItems.get(itemPosition);
+
+            final List<Binder<? extends T, ? extends ViewHolder>> binders = mBinderListCache.get(itemPosition);
+
+            mItems.remove(itemPosition);
+
+            for (final ListIterator<Integer> iter = mViewHolderToItemPositionCache.listIterator(); iter.hasNext(); ) {
+                if (iter.next() == itemPosition) {
+                    iter.remove();
+                }
+            }
+
+            for (int viewHolderIndex = numViewHolders; viewHolderIndex < mViewHolderToItemPositionCache.size(); viewHolderIndex++) {
+                mViewHolderToItemPositionCache.set(viewHolderIndex, mViewHolderToItemPositionCache.get(viewHolderIndex) - 1);
+            }
+
+            mItemPositionToFirstViewHolderPositionCache.remove(itemPosition);
+
+            if (binders != null) {
+                for (int itemIndex = itemPosition; itemIndex < mItemPositionToFirstViewHolderPositionCache.size(); itemIndex++) {
+                    mItemPositionToFirstViewHolderPositionCache.set(itemIndex,
+                            mItemPositionToFirstViewHolderPositionCache.get(itemIndex) - binders.size());
+                }
+            }
+
+            mBinderListCache.remove(itemPosition);
+
+            if (binders != null) {
+                notifyItemRangeRemoved(numViewHolders, binders.size());
+            }
+        } else {
+            item = null;
+        }
+
+        return item;
+    }
+
+    @Nullable
+    public List<Binder<? extends T, ? extends ViewHolder>> getBindersForPosition(final int itemPosition) {
+        final List<Binder<? extends T, ? extends ViewHolder>> binders;
+
+        if (isItemPositionWithinBounds(itemPosition)) {
+            binders = mBinderListCache.get(itemPosition);
+        } else {
+            binders = null;
+        }
+
+        return binders;
+    }
+
+    /**
+     *  返回结果first是offset，second是count
+     */
+    @Nullable
+    public Pair<Integer, Integer> getViewHolderRange(final int itemPosition) {
+        final Pair<Integer, Integer> range;
+
+        if (isItemPositionWithinBounds(itemPosition)) {
+            final int numViewHolders = getViewHolderCount(itemPosition);
+
+            final List<Binder<? extends T, ? extends ViewHolder>> binders = mBinderListCache.get(itemPosition);
+
+            range = new Pair<>(numViewHolders, binders.size());
+        } else {
+            range = null;
+        }
+
+        return range;
+    }
+
+    private boolean isItemPositionWithinBounds(final int itemPosition) {
+        return itemPosition >= 0 && itemPosition < mItems.size();
+    }
+
+    private boolean isViewHolderPositionWithinBounds(final int viewHolderPosition) {
+        return viewHolderPosition >= 0 && viewHolderPosition < mViewHolderToItemPositionCache.size();
     }
 
     private BinderResult<? extends T> computeItemAndBinderIndex(final int viewHolderPosition) {

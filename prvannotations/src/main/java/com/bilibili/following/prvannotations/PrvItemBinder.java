@@ -11,6 +11,7 @@ public @interface PrvItemBinder {
     //约定如果没有显性定义，隐性使用父类第一项泛型类型
     Class type() default None.class;
 
+    //顺序很重要
     Class[] binder();
 
 }

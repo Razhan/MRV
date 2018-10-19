@@ -46,6 +46,8 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
+import jdk.nashorn.internal.ir.IfNode;
+
 import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
@@ -189,8 +191,13 @@ public class PrvProcessor extends AbstractProcessor {
                     .addAnnotation(AnnotationSpec.builder(NonNull).build())
                     .addAnnotation(Override.class)
                     .addParameter(itemBinderDataTypeClass, "model")
-                    .addParameter(int.class, "position")
-                    .addCode("return new $T<>($T.asList(", ArrayList.class, Arrays.class);
+                    .addParameter(int.class, "position");
+
+            if (itemBinder.implementedMethodList.contains("getBinderList")) {
+                methodBuilder.addStatement("super.getBinderList($N, $N)", "model", "position");
+            }
+
+            methodBuilder.addCode("return new $T<>($T.asList(", ArrayList.class, Arrays.class);
 
             for (int i = 0; i < itemBinder.binderList.size(); i++) {
                 TypeElement binderName = itemBinder.binderList.get(i);
