@@ -42,6 +42,21 @@ public class StringUtils {
         return String.valueOf(string.charAt(3)).toLowerCase() + string.substring(4);
     }
 
+    public static String getIdListString(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder str = new StringBuilder();
+        for (int id : ids) {
+            str.append(String.valueOf(id)).append(", ");
+        }
+
+        str.delete(str.length() - 2, str.length());
+
+        return str.toString();
+    }
+
     private static Character getOrNull(String str, int index) {
         if (str == null || str.length() <= 0) {
             return null;

@@ -5,6 +5,7 @@ import com.bilibili.following.prvannotations.PrvAdapter;
 import com.bilibili.following.prvannotations.PrvAttribute;
 import com.bilibili.following.prvannotations.PrvBinder;
 import com.bilibili.following.prvannotations.PrvItemBinder;
+import com.bilibili.following.prvannotations.PrvOnClick;
 import com.bilibili.following.prvcompiler.info.AdapterInfo;
 import com.bilibili.following.prvcompiler.info.BindingModelInfo;
 import com.bilibili.following.prvcompiler.info.GeneratedModelInfo;
@@ -252,6 +253,43 @@ public class ProcessUtils {
         return adapterInfoList;
     }
 
+    public static boolean isSuperClass(TypeElement superElement, TypeElement childElement) {
+        while (true) {
+            if (superElement.equals(childElement)) {
+                return true;
+            } else {
+                TypeMirror superClass = childElement.getSuperclass();
+                if (superClass.getKind() == TypeKind.NONE) {
+                    return false;
+                }
+
+                childElement = (TypeElement) ((DeclaredType) superClass).asElement();
+            }
+        }
+    }
+
+    public static List<Integer> getOnClickIds(TypeElement typeElement) {
+        List<? extends Element> elementList = typeElement.getEnclosedElements();
+
+        List<Integer> ids = new ArrayList<>();
+        for (Element element : elementList) {
+            //处理OnClick资源id
+            if (element instanceof ExecutableElement) {
+                ExecutableElement executableElement = (ExecutableElement) element;
+                if (executableElement.getAnnotation(PrvOnClick.class) != null && executableElement.getAnnotation(Override.class) != null) {
+                       if ("getListener".equals(executableElement.getSimpleName().toString()))  {
+                           for (int id : executableElement.getAnnotation(PrvOnClick.class).value()) {
+                               ids.add(id);
+                           }
+                           break;
+                       }
+                }
+            }
+        }
+
+        return ids;
+    }
+
     private static Set<ItemBinderInfo> getCorrespondingAdapterInfo(TypeElement superType, Set<ItemBinderInfo> itemBinderInfoSet) {
         Set<ItemBinderInfo> res = new HashSet<>();
 
@@ -428,19 +466,5 @@ public class ProcessUtils {
         }
     }
 
-    private static boolean isSuperClass(TypeElement superElement, TypeElement childElement) {
-        while (true) {
-            if (superElement.equals(childElement)) {
-                return true;
-            } else {
-                TypeMirror superClass = childElement.getSuperclass();
-                if (superClass.getKind() == TypeKind.NONE) {
-                    return false;
-                }
-
-                childElement = (TypeElement) ((DeclaredType) superClass).asElement();
-            }
-        }
-    }
 
 }

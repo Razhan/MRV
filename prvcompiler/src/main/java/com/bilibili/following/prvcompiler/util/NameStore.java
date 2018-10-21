@@ -1,5 +1,7 @@
 package com.bilibili.following.prvcompiler.util;
 
+import com.sun.javadoc.SeeTag;
+
 public class NameStore {
     private NameStore() {
     }
@@ -10,13 +12,13 @@ public class NameStore {
 
     public static final String MODEL = "Model";
     public static final String BR = "BR";
+    public static final String VIEWHOLDER_STRING = "ViewHolder";
 
     public static final String VAL = "val";
     public static final String BINDING_SUFFIX = "Binding";
     public static final String BINDING_MODEL_SUFFIX = "BindingModel";
     public static final String DATA_BINDING = "databinding";
     public static final String ADAPTER_NAME = "Base%sPrvAdapter";
-
 
     //lib
     public static final String LIB = "com.bilibili.following.prvlibrary";
@@ -27,12 +29,18 @@ public class NameStore {
     public static final String BINDING_MODEL = LIB + ".binder.BindingModel";
     public static final String DATABINDING_BINDER = LIB + ".binder.DataBindingBinder";
     public static final String ADAPTER = LIB + ".BasePrvAdapter";
-
+    public static final String ACTION_LISTENER = LIB + ".listener.ActionListener";
+    public static final String BASE_BINDER = LIB + ".binder.BaseBinder";
 
     //Android
     public static final String VIEW_GROUP = "android.view.ViewGroup";
     public static final String NONNULL = "android.support.annotation.NonNull";
+    public static final String NULLABLE = "android.support.annotation.Nullable";
     public static final String VIEW_DATA_BINDING = "android.databinding.ViewDataBinding";
-    public static final String LAYOUTINFLATER = "android.view.LayoutInflater";
+    public static final String LAYOUT_INFLATER = "android.view.LayoutInflater";
+    public static final String VIEW = "android.view.View";
+
+    //ButterKnife
+    public static final String ONCLICK = "butterknife.OnClick";
 
 }

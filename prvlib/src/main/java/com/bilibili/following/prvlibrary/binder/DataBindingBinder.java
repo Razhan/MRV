@@ -12,8 +12,7 @@ import com.bilibili.following.prvlibrary.viewholder.ViewHolder;
 
 import java.util.List;
 
-public abstract class DataBindingBinder<T, VH extends DataBindingViewHolder, BM extends BindingModel>
-        implements Binder<T, VH> {
+public abstract class DataBindingBinder<T, VH extends DataBindingViewHolder, BM extends BindingModel> extends BaseBinder<T, VH> {
 
     protected View buildView(@NonNull ViewGroup parent) {
         LayoutInflater layoutInflater = LayoutInflater.from(parent.getContext());
@@ -25,8 +24,9 @@ public abstract class DataBindingBinder<T, VH extends DataBindingViewHolder, BM 
 
     @Override
     public void bind(@NonNull T model, @NonNull VH holder, @NonNull List<Binder<? super T, ? extends ViewHolder>> binders, int binderIndex) {
-        ViewDataBinding dataBinding = holder.getBinding();
+        super.bind(model, holder, binders,binderIndex);
 
+        ViewDataBinding dataBinding = holder.getBinding();
         if (dataBinding != null) {
             setDataBindingVariables(model, dataBinding);
             dataBinding.executePendingBindings();
