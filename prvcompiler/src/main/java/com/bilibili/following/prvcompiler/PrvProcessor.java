@@ -295,7 +295,7 @@ public class PrvProcessor extends AbstractProcessor {
         }
 
         TypeName listenerTypeName = ParameterizedTypeName.get(ClassName.bestGuess(NameStore.ACTION_LISTENER), binderDataTypeClass, dataBindingViewHolderClass);
-        MethodSpec.Builder createBuilder = getBinderCreateMethod(element, resource, viewHolderClass, listenerTypeName);
+        MethodSpec.Builder createBuilder = getDataBindingBinderCreateMethod(element, viewHolderClass, listenerTypeName);
 
         TypeSpec.Builder classBuilder = TypeSpec.classBuilder(implClassName)
                 .addModifiers(PUBLIC, FINAL)
@@ -468,7 +468,7 @@ public class PrvProcessor extends AbstractProcessor {
         createFile(packageName, classBuilder);
     }
 
-    //生成binder的create方法，区分是否带listener参数
+    //生成自定义Binder的create方法，区分是否带listener参数
     private MethodSpec.Builder getBinderCreateMethod(TypeElement element, int resource, ClassName viewHolderClass, TypeName listenerTypeName) {
         MethodSpec.Builder createBuilder = MethodSpec.methodBuilder("create")
                 .addModifiers(PUBLIC)
@@ -485,6 +485,23 @@ public class PrvProcessor extends AbstractProcessor {
             createBuilder.addStatement("return new $T($T.from($N.getContext()).inflate($L, $N, $L))",
                             viewHolderClass, ClassName.bestGuess(NameStore.LAYOUT_INFLATER), "parent",
                             resource, "parent", false);
+        }
+        return createBuilder;
+    }
+
+    //生成DataBindingBinder的create方法，区分是否带listener参数
+    private MethodSpec.Builder getDataBindingBinderCreateMethod(TypeElement element, ClassName viewHolderClass, TypeName listenerTypeName) {
+        MethodSpec.Builder createBuilder = MethodSpec.methodBuilder("create")
+                .addModifiers(PUBLIC)
+                .returns(viewHolderClass)
+                .addAnnotation(Override.class)
+                .addParameter(ClassName.bestGuess(NameStore.VIEW_GROUP), "parent");
+
+        if (ProcessUtils.isSuperClass(elements.getTypeElement(NameStore.BASE_BINDER), element)) {
+            createBuilder.addParameter(listenerTypeName, "listener")
+                    .addStatement("return new $T($N($N), $N)", viewHolderClass, "buildView", "parent", "listener");
+        } else {
+            createBuilder.addStatement("return new $T($N($N)", viewHolderClass, "buildView", "parent");
         }
         return createBuilder;
     }
