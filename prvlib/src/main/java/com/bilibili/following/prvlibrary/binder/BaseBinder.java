@@ -33,10 +33,9 @@ public abstract class BaseBinder<T, VH extends BaseViewHolder> implements Binder
         updateListener(model, holder, binders, binderIndex);
     }
 
+    @SuppressWarnings("unchecked")
     private void updateListener(T model, VH holder, List<Binder<? super T, ? extends ViewHolder>> binders, int binderIndex) {
-        if (mListener != null) {
-            mListener.update(model, holder, binders, binderIndex);
-        }
+        holder.getListenerDelegate().update(model, holder, binders, binderIndex);
     }
 
 }

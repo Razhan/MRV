@@ -23,8 +23,8 @@ public class TestAViewHolder extends BaseViewHolder {
 
     @OnClick({R.id.button})
     public void onClick(View view) {
-        if (mClickListener != null) {
-            mClickListener.onClick(view);
+        if (listenerDelegate != null) {
+            listenerDelegate.onClick(view);
         }
     }
 

@@ -333,8 +333,8 @@ public class PrvProcessor extends AbstractProcessor {
                     .returns(void.class)
                     .addAnnotation(AnnotationSpec.builder(ClassName.bestGuess(NameStore.ONCLICK))
                             .addMember("value", "{$L}", StringUtils.getIdListString(ids)).build())
-                    .beginControlFlow("if ($N != null)", "mClickListener")
-                    .addStatement("mClickListener.onClick($N)", "view")
+                    .beginControlFlow("if ($N != null)", "listenerDelegate")
+                    .addStatement("listenerDelegate.onClick($N)", "view")
                     .endControlFlow();
         }
 

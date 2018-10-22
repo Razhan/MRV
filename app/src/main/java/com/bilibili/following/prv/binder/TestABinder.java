@@ -30,7 +30,7 @@ public abstract class TestABinder extends BaseBinder<ColorNamePrimitive, TestAVi
     public ActionListener<ColorNamePrimitive, TestAViewHolder> getListener() {
         return new ActionListener<ColorNamePrimitive, TestAViewHolder>() {
             @Override
-            protected void act(View v, ColorNamePrimitive model, TestAViewHolder holder, List<Binder<? super ColorNamePrimitive, ? extends ViewHolder>> binders, int binderIndex) {
+            public void act(View v, ColorNamePrimitive model, TestAViewHolder holder, List<Binder<? super ColorNamePrimitive, ? extends ViewHolder>> binders, int binderIndex) {
                 switch (v.getId()) {
                     case R.id.button:
                         break;
