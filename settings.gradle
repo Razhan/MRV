@@ -1,1 +1,1 @@
-include ':app', ':prvlib', ':prvannotations', ':prvcompiler'
+include ':app', ':bbq-feed-lib', ':bbq-feed-annotation', ':bbq-feed-compiler'
