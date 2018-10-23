@@ -7,6 +7,9 @@ import android.support.v7.widget.RecyclerView;
 
 import com.bilibili.following.prv.model.ColorNamePrimitive;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class MainActivity extends AppCompatActivity {
 
 	PrimitiveAdapter mPrimitiveAdapter;
@@ -22,11 +25,15 @@ public class MainActivity extends AppCompatActivity {
 
 		recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-		mPrimitiveAdapter.add(new ColorNamePrimitive(R.color.red_base_variant_0, "dark red"));
-		mPrimitiveAdapter.add(new ColorNamePrimitive(R.color.red_base_variant_1, "red"));
-		mPrimitiveAdapter.add(new ColorNamePrimitive(R.color.red_base_variant_2, "bright red"));
-		mPrimitiveAdapter.add(new ColorNamePrimitive(R.color.red_base_variant_3, "shy red"));
-		mPrimitiveAdapter.add(new ColorNamePrimitive(R.color.red_base_variant_4, "embarrassed red"));
+		List<ColorNamePrimitive> list = new ArrayList<>();
+		list.add(new ColorNamePrimitive(R.color.red_base_variant_0, "dark red"));
+		list.add(new ColorNamePrimitive(R.color.red_base_variant_1, "red"));
+		list.add(new ColorNamePrimitive(R.color.red_base_variant_2, "bright red"));
+		list.add(new ColorNamePrimitive(R.color.red_base_variant_3, "shy red"));
+		list.add(new ColorNamePrimitive(R.color.red_base_variant_4, "embarrassed red"));
+
+
+		mPrimitiveAdapter.addAll(list);
 
 		recyclerView.setAdapter(mPrimitiveAdapter);
 	}

@@ -29,7 +29,7 @@ public abstract class BaseBinder<T, VH extends BaseViewHolder> implements Binder
 
     @Override
     @CallSuper
-    public void bind(@NonNull T model, @NonNull VH holder, @NonNull List<Binder<? super T, ? extends ViewHolder>> binders, int binderIndex) {
+    public void bind(@NonNull T model, @NonNull VH holder, @NonNull List<Binder<? super T, ? extends ViewHolder>> binders, int binderIndex, @NonNull List<Object> payloads) {
         updateListener(model, holder, binders, binderIndex);
     }
 

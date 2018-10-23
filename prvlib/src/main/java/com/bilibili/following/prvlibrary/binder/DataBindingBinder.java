@@ -23,14 +23,22 @@ public abstract class DataBindingBinder<T, VH extends DataBindingViewHolder, BM 
     }
 
     @Override
-    public void bind(@NonNull T model, @NonNull VH holder, @NonNull List<Binder<? super T, ? extends ViewHolder>> binders, int binderIndex) {
-        super.bind(model, holder, binders,binderIndex);
+    public void bind(@NonNull T model, @NonNull VH holder, @NonNull List<Binder<? super T, ? extends ViewHolder>> binders,
+                     int binderIndex, @NonNull List<Object> payloads) {
+        super.bind(model, holder, binders,binderIndex, payloads);
 
         ViewDataBinding dataBinding = holder.getBinding();
-        if (dataBinding != null) {
-            setDataBindingVariables(model, dataBinding);
-            dataBinding.executePendingBindings();
+        if (dataBinding == null) {
+            return;
         }
+
+        if (payloads.isEmpty()) {
+            setAllDataBindingVariables(model, dataBinding);
+        } else {
+            setUpdatedDataBindingVariables(model, dataBinding, payloads);
+        }
+
+        dataBinding.executePendingBindings();
     }
 
     @Override
@@ -44,13 +52,13 @@ public abstract class DataBindingBinder<T, VH extends DataBindingViewHolder, BM 
     }
 
     /**
-     * 从真实数据模型中抽取需要展示的数据，轻量数据操作
+     * 从真实数据模型中抽取需要展示的数据，轻量数据操作，注意每个Field都需要重新赋值，防止复用错误
      * 解耦数据解析与渲染逻辑
-     * Best Practice 对象重新赋值，不用new新对象
      */
     @NonNull
     protected abstract BM prepareBindingModel(T model);
 
-    protected abstract void setDataBindingVariables(T model, ViewDataBinding binding);
+    protected abstract void setAllDataBindingVariables(T model, ViewDataBinding binding);
 
+    protected abstract void setUpdatedDataBindingVariables(T model, ViewDataBinding binding, @NonNull List<Object> payloads);
 }

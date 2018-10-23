@@ -52,6 +52,7 @@ import static javax.lang.model.element.Modifier.ABSTRACT;
 import static javax.lang.model.element.Modifier.FINAL;
 import static javax.lang.model.element.Modifier.PRIVATE;
 import static javax.lang.model.element.Modifier.PUBLIC;
+import static javax.lang.model.element.Modifier.STATIC;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
 @AutoService(Processor.class)
@@ -257,6 +258,7 @@ public class PrvProcessor extends AbstractProcessor {
         implClassName = className + NameStore.AUTO_IMPL_SUFFIX;
         String rootPackage = ProcessUtils.getRootModuleString(element);
         ClassName currentClass = ClassName.get(packageName, implClassName);
+        ClassName nonNullClass = ClassName.bestGuess(NameStore.NONNULL);
 
         GeneratedModelInfo modelInfo = ProcessUtils.getGeneratedModelInfo(element, ResourceUtils.getLayoutsInAnnotation(element, PrvBinder.class), rootPackage);
 
@@ -279,7 +281,7 @@ public class PrvProcessor extends AbstractProcessor {
 
         binderDataTypeClass = ClassName.bestGuess(types.get(0).toString());
 
-        MethodSpec.Builder methodSpecBuilder = MethodSpec.methodBuilder("setDataBindingVariables")
+        MethodSpec.Builder setAllVariablesBuilder = MethodSpec.methodBuilder("setAllDataBindingVariables")
                 .addModifiers(PUBLIC)
                 .returns(void.class)
                 .addAnnotation(Override.class)
@@ -288,11 +290,44 @@ public class PrvProcessor extends AbstractProcessor {
                 .addStatement("$T $N = prepareBindingModel($N)", binderModelTypeClass, "bindingModel", "model")
                 .addCode("\n");
 
-        for (BindingModelInfo info: modelInfo.bindingModelInfo) {
+        for (BindingModelInfo info : modelInfo.bindingModelInfo) {
             String field = info.fieldName;
-            methodSpecBuilder.addStatement("$N.setVariable($T.$N, $N.$N())", "binding",
+            setAllVariablesBuilder.addStatement("$N.setVariable($T.$N, $N.$N())", "binding",
                     ClassName.get(rootPackage, NameStore.BR), field, "bindingModel", field);
         }
+
+        TypeName listTypeName = ParameterizedTypeName.get(listClass, ClassName.get(Object.class));
+
+        MethodSpec.Builder setUpdatedVariablesBuilder = MethodSpec.methodBuilder("setUpdatedDataBindingVariables")
+                .addModifiers(PUBLIC)
+                .returns(void.class)
+                .addAnnotation(Override.class)
+                .addParameter(binderDataTypeClass, "model")
+                .addParameter(ClassName.bestGuess(NameStore.VIEW_DATA_BINDING), "binding")
+                .addParameter(ParameterSpec.builder(listTypeName, "payloads")
+                        .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
+                        .build())
+                .addStatement("$T $N = prepareBindingModel($N)", binderModelTypeClass, "bindingModel", "model")
+                .addCode("\n")
+                .beginControlFlow("for ($T $N : $N)", Object.class, "payload", "payloads")
+                .beginControlFlow("if ($N instanceof $T)", "payload", String.class)
+                .beginControlFlow("switch (($T) $N)", String.class, "payload");
+
+        for (BindingModelInfo info : modelInfo.bindingModelInfo) {
+            String field = info.fieldName;
+
+            setUpdatedVariablesBuilder.addCode("case $T.$N:", binderModelTypeClass,
+                    StringUtils.toSnakeCase(info.fieldName).toUpperCase().toUpperCase())
+                    .addCode("\n")
+                    .addStatement("$N.setVariable($T.$N, $N.$N())", "binding",
+                            ClassName.get(rootPackage, NameStore.BR), field, "bindingModel", field)
+            .addStatement("break");
+        }
+
+        setUpdatedVariablesBuilder.endControlFlow()
+            .endControlFlow()
+            .endControlFlow();
+
 
         TypeName listenerTypeName = ParameterizedTypeName.get(ClassName.bestGuess(NameStore.ACTION_LISTENER), binderDataTypeClass, dataBindingViewHolderClass);
         MethodSpec.Builder createBuilder = getDataBindingBinderCreateMethod(element, viewHolderClass, listenerTypeName);
@@ -310,7 +345,8 @@ public class PrvProcessor extends AbstractProcessor {
                         .addStatement("return $L", resource)
                         .build())
                 .addMethod(createBuilder.build())
-                .addMethod(methodSpecBuilder.build());
+                .addMethod(setAllVariablesBuilder.build())
+                .addMethod(setUpdatedVariablesBuilder.build());
 
         createFile(packageName, classBuilder);
     }
@@ -367,7 +403,7 @@ public class PrvProcessor extends AbstractProcessor {
 
         ClassName binderModelTypeClass;
         ClassName viewHolderClass;
-        ClassName NonNullClass = ClassName.bestGuess(NameStore.NONNULL);
+        ClassName nonNullClass = ClassName.bestGuess(NameStore.NONNULL);
         ClassName currentClass = ClassName.get(packageName, implClassName);
         ClassName binderClass = ClassName.bestGuess(NameStore.BINDER);
 
@@ -416,10 +452,10 @@ public class PrvProcessor extends AbstractProcessor {
                             .returns(void.class)
                             .addModifiers(PUBLIC)
                             .addParameter(ParameterSpec.builder(binderModelTypeClass, "model")
-                                    .addAnnotation(AnnotationSpec.builder(NonNullClass).build())
+                                    .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
                                     .build())
                             .addParameter(ParameterSpec.builder(listBinderTypeName, "binders")
-                                    .addAnnotation(AnnotationSpec.builder(NonNullClass).build())
+                                    .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
                                     .build())
                             .addParameter(int.class, "binderIndex");
                     break;
@@ -429,13 +465,13 @@ public class PrvProcessor extends AbstractProcessor {
                             .returns(void.class)
                             .addModifiers(PUBLIC)
                             .addParameter(ParameterSpec.builder(binderModelTypeClass, "model")
-                                    .addAnnotation(AnnotationSpec.builder(NonNullClass).build())
+                                    .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
                                     .build())
                             .addParameter(ParameterSpec.builder(viewHolderClass, "holder")
-                                    .addAnnotation(AnnotationSpec.builder(NonNullClass).build())
+                                    .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
                                     .build())
                             .addParameter(ParameterSpec.builder(listBinderTypeName, "binders")
-                                    .addAnnotation(AnnotationSpec.builder(NonNullClass).build())
+                                    .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
                                     .build())
                             .addParameter(int.class, "binderIndex");
                     break;
@@ -445,7 +481,7 @@ public class PrvProcessor extends AbstractProcessor {
                             .returns(void.class)
                             .addModifiers(PUBLIC)
                             .addParameter(ParameterSpec.builder(viewHolderClass, "holder")
-                                    .addAnnotation(AnnotationSpec.builder(NonNullClass).build())
+                                    .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
                                     .build());
                     break;
                 case "getListener":
@@ -545,6 +581,13 @@ public class PrvProcessor extends AbstractProcessor {
 
             for (BindingModelInfo modelInfo : infoSet) {
                 TypeName attributeClass = ClassName.get(modelInfo.typeMirror);
+                //静态字段
+                FieldSpec staticField = FieldSpec.builder(String.class, StringUtils.toSnakeCase(modelInfo.fieldName).toUpperCase())
+                        .addModifiers(PUBLIC, STATIC, FINAL)
+                        .initializer("$S", modelName.concat(".").concat(modelInfo.fieldName))
+                        .build();
+
+                classBuilder.addField(staticField);
                 classBuilder.addField(attributeClass, modelInfo.fieldName, PRIVATE);
 
                 MethodSpec setter = MethodSpec.methodBuilder(modelInfo.fieldName)

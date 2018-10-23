@@ -15,6 +15,7 @@ import com.bilibili.following.prvlibrary.binder.ItemBinder;
 import com.bilibili.following.prvlibrary.viewholder.ViewHolder;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.ListIterator;
 
@@ -70,14 +71,21 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
 
     @Override
     public void onBindViewHolder(@NonNull final ViewHolder holder, final int viewHolderPosition) {
+        this.onBindViewHolder(holder, viewHolderPosition, Collections.emptyList());
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public void onBindViewHolder(@NonNull ViewHolder holder, int viewHolderPosition, @NonNull List<Object> payloads) {
         final BinderResult<? extends T> result = computeItemAndBinderIndex(viewHolderPosition);
         final Binder binder = result.getBinder();
 
         if (binder != null && result.item != null && result.binderList != null) {
-            binder.bind(result.item, holder, result.binderList, result.binderIndex);
+            binder.bind(result.item, holder, result.binderList, result.binderIndex, payloads);
         }
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public void onViewRecycled(@NonNull ViewHolder holder) {
         super.onViewRecycled(holder);
@@ -103,6 +111,20 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
         add(mItems.size(), item);
     }
 
+    public void addAll(@NonNull final List<? extends T> items) {
+        addAll(mItems.size(), items);
+    }
+
+    public void addAll(final int position, @NonNull final List<? extends T> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+
+        for (int i = 0; i < items.size(); i++) {
+            add(position + i, items.get(i));
+        }
+    }
+
     public void add(final int position, @NonNull final T item) {
         final List<Binder<? extends T, ? extends ViewHolder>> binders = getParts(item, position);
         if (binders == null || binders.isEmpty()) {
@@ -121,7 +143,7 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
             itemPositions.add(position);
         }
 
-        // TODO: 10/19/18 O(n)操作 需优化
+        // TODO: 10/19/18 O(n)操作 考虑优化
         mViewHolderToItemPositionCache.addAll(numViewHolders, itemPositions);
         for (int viewHolderIndex = numViewHolders + binders.size(); viewHolderIndex < mViewHolderToItemPositionCache.size();
              viewHolderIndex++) {
@@ -146,9 +168,10 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
 
             mItems.remove(itemPosition);
 
-            for (final ListIterator<Integer> iter = mViewHolderToItemPositionCache.listIterator(); iter.hasNext(); ) {
-                if (iter.next() == itemPosition) {
-                    iter.remove();
+            // TODO: 10/19/18 O(n)操作 考虑优化
+            for (final ListIterator<Integer> iterator = mViewHolderToItemPositionCache.listIterator(); iterator.hasNext(); ) {
+                if (iterator.next() == itemPosition) {
+                    iterator.remove();
                 }
             }
 
@@ -210,6 +233,14 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
         return range;
     }
 
+    public int getItemPosition(final int viewHolderPosition) {
+        if (isViewHolderPositionWithinBounds(viewHolderPosition)) {
+            return mViewHolderToItemPositionCache.get(viewHolderPosition);
+        } else {
+            return -1;
+        }
+    }
+
     private boolean isItemPositionWithinBounds(final int itemPosition) {
         return itemPosition >= 0 && itemPosition < mItems.size();
     }
@@ -240,6 +271,7 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
         }
     }
 
+    @SuppressWarnings("unchecked")
     @Nullable
     private List<Binder<? extends T, ? extends ViewHolder>> getParts(final T model, final int position) {
         final List<Binder<? extends T, ? extends ViewHolder>> list;

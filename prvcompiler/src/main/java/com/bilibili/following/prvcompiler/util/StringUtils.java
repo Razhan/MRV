@@ -57,6 +57,10 @@ public class StringUtils {
         return str.toString();
     }
 
+    public static String toSnakeCase(String s) {
+        return s.replaceAll("([^_A-Z])([A-Z])", "$1_$2").toLowerCase();
+    }
+
     private static Character getOrNull(String str, int index) {
         if (str == null || str.length() <= 0) {
             return null;

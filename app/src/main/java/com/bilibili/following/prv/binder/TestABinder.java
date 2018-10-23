@@ -3,6 +3,7 @@ package com.bilibili.following.prv.binder;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.view.View;
+import android.widget.Toast;
 
 import com.bilibili.following.prv.R;
 import com.bilibili.following.prv.model.ColorNamePrimitive;
@@ -20,8 +21,8 @@ import java.util.List;
 public abstract class TestABinder extends BaseBinder<ColorNamePrimitive, TestAViewHolder> {
 
     @Override
-    public void bind(@NonNull ColorNamePrimitive model, @NonNull TestAViewHolder holder, @NonNull List<Binder<? super ColorNamePrimitive, ? extends ViewHolder>> binders, int binderIndex) {
-        super.bind(model, holder, binders, binderIndex);
+    public void bind(@NonNull ColorNamePrimitive model, @NonNull TestAViewHolder holder, @NonNull List<Binder<? super ColorNamePrimitive, ? extends ViewHolder>> binders, int binderIndex, @NonNull List<Object> payloads) {
+        super.bind(model, holder, binders, binderIndex, payloads);
     }
 
     @Nullable
@@ -33,6 +34,7 @@ public abstract class TestABinder extends BaseBinder<ColorNamePrimitive, TestAVi
             public void act(View v, ColorNamePrimitive model, TestAViewHolder holder, List<Binder<? super ColorNamePrimitive, ? extends ViewHolder>> binders, int binderIndex) {
                 switch (v.getId()) {
                     case R.id.button:
+                        Toast.makeText(v.getContext(), model.getString(), Toast.LENGTH_SHORT).show();
                         break;
                     default:
                         break;

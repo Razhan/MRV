@@ -81,9 +81,13 @@ public class ProcessUtils {
                 return null;
             }
 
-            // TODO: 10/11/18 check duplicated layout
             PrvBinder annotation = element.getAnnotation(PrvBinder.class);
             if (annotation != null) {
+                if (binderMap.values().contains(annotation.value())) {
+                    messager.printMessage(Diagnostic.Kind.ERROR, "different binder can not has the same layout id");
+                    return null;
+                }
+
                 binderMap.put((TypeElement) element, annotation.value());
             }
         }
