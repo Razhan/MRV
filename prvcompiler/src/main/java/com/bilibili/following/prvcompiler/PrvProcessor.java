@@ -319,9 +319,10 @@ public class PrvProcessor extends AbstractProcessor {
             setUpdatedVariablesBuilder.addCode("case $T.$N:", binderModelTypeClass,
                     StringUtils.toSnakeCase(info.fieldName).toUpperCase().toUpperCase())
                     .addCode("\n")
-                    .addStatement("$N.setVariable($T.$N, $N.$N())", "binding",
+                    .addStatement("$>$N.setVariable($T.$N, $N.$N())", "binding",
                             ClassName.get(rootPackage, NameStore.BR), field, "bindingModel", field)
-            .addStatement("break");
+                    .addStatement("break")
+            .addCode("$<");
         }
 
         setUpdatedVariablesBuilder.endControlFlow()
