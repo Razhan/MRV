@@ -16,6 +16,7 @@ import com.squareup.javapoet.TypeName;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -93,6 +94,63 @@ public class ProcessUtils {
         }
 
         return binderMap;
+    }
+
+    public static Map<TypeElement, GeneratedModelInfo> getBinderInfoMap(Map<TypeElement, Integer> binderMap) {
+        if (binderMap == null || binderMap.isEmpty()) {
+            return null;
+        }
+
+        Map<TypeElement, GeneratedModelInfo> binderInfoMap = new HashMap<>();
+
+        for (Map.Entry<TypeElement, Integer> entry : binderMap.entrySet()) {
+            String rootPackage = ProcessUtils.getRootModuleString(entry.getKey());
+
+            GeneratedModelInfo modelInfo = ProcessUtils.getGeneratedModelInfo(entry.getKey(),
+                    ResourceUtils.getLayoutsInAnnotation(entry.getKey(), PrvBinder.class), rootPackage);
+
+            binderInfoMap.put(entry.getKey(), modelInfo);
+        }
+
+        return binderInfoMap;
+    }
+
+    public static boolean waitingForDataBinding(Collection<GeneratedModelInfo> infoList) {
+        for(GeneratedModelInfo info : infoList) {
+            if (info == null) {
+                continue;
+            }
+
+            if (getElementByName(info.dataBindingClassName) == null) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static void attributeGeneratedModel(Collection<GeneratedModelInfo> infoList) {
+        for (GeneratedModelInfo info : infoList) {
+            if (info == null) {
+                continue;
+            }
+
+            TypeElement dataBinding = getElementByName(info.dataBindingClassName);
+            List<BindingModelInfo> bindingModelInfo = new ArrayList<>();
+            for (Element element : dataBinding.getEnclosedElements()) {
+                if (element.getKind() != ElementKind.METHOD) {
+                    continue;
+                }
+
+                if (ProcessUtils.isSetterMethod(element)) {
+                    String name = StringUtils.removeSetPrefix(element.getSimpleName().toString());
+                    TypeMirror typeMirror = ((ExecutableElement) element).getParameters().get(0).asType();
+                    bindingModelInfo.add(new BindingModelInfo(name, typeMirror));
+                }
+            }
+
+            info.setBindingModelInfo(bindingModelInfo);
+        }
     }
 
     public static List<? extends TypeMirror> getClassGenericTypes(TypeElement element) {
@@ -196,33 +254,36 @@ public class ProcessUtils {
     }
 
     public static GeneratedModelInfo getGeneratedModelInfo(TypeElement typeElement, ResourceInfo resource, String rootPackage) {
+        if (!isDataBindingBinder(typeElement)) {
+            return null;
+        }
 
         ClassName dataBindingClassName = getDataBindingClassNameForResource(resource, rootPackage);
         TypeElement dataBinding = getElementByName(dataBindingClassName);
 
-        //第一轮解析dataBinding为null
-        if (dataBinding == null) {
-            return null;
-        }
-
         GeneratedModelInfo modelInfo = new GeneratedModelInfo();
         modelInfo.setPackageName(ClassName.get(typeElement).packageName());
         modelInfo.setClassName(ProcessUtils.getDataBindingClassNameStringForResource(resource));
+        modelInfo.setDataBindingClassName(dataBindingClassName);
 
-        List<BindingModelInfo> bindingModelInfo = new ArrayList<>();
-        for (Element element: dataBinding.getEnclosedElements()) {
-            if (element.getKind() != ElementKind.METHOD) {
-                continue;
+        //第一轮解析dataBinding为null
+        if (dataBinding != null) {
+            List<BindingModelInfo> bindingModelInfo = new ArrayList<>();
+            for (Element element : dataBinding.getEnclosedElements()) {
+                if (element.getKind() != ElementKind.METHOD) {
+                    continue;
+                }
+
+                if (ProcessUtils.isSetterMethod(element)) {
+                    String name = StringUtils.removeSetPrefix(element.getSimpleName().toString());
+                    TypeMirror typeMirror = ((ExecutableElement) element).getParameters().get(0).asType();
+                    bindingModelInfo.add(new BindingModelInfo(name, typeMirror));
+                }
             }
 
-            if (ProcessUtils.isSetterMethod(element)) {
-                String name = StringUtils.removeSetPrefix(element.getSimpleName().toString());
-                TypeMirror typeMirror = ((ExecutableElement) element).getParameters().get(0).asType();
-                bindingModelInfo.add(new BindingModelInfo(name, typeMirror));
-            }
+            modelInfo.setBindingModelInfo(bindingModelInfo);
         }
 
-        modelInfo.setBindingModelInfo(bindingModelInfo);
         return modelInfo;
     }
 
@@ -257,9 +318,9 @@ public class ProcessUtils {
         return adapterInfoList;
     }
 
-    public static boolean isSuperClass(TypeElement superElement, TypeElement childElement) {
+    private static boolean isSuperClass(TypeElement superElement, TypeElement childElement) {
         while (true) {
-            if (superElement.equals(childElement)) {
+            if (superElement.toString().equals(childElement.toString())) {
                 return true;
             } else {
                 TypeMirror superClass = childElement.getSuperclass();
@@ -269,6 +330,27 @@ public class ProcessUtils {
 
                 childElement = (TypeElement) ((DeclaredType) superClass).asElement();
             }
+        }
+    }
+
+
+    private static boolean isInterface(TypeElement superElement, TypeElement childElement) {
+        while (true) {
+            List<? extends TypeMirror> interfaces = childElement.getInterfaces();
+            if (interfaces != null && !interfaces.isEmpty()) {
+                for (TypeMirror inter : interfaces) {
+                    if (superElement.toString().equals(inter.toString())) {
+                        return true;
+                    }
+                }
+            }
+
+            TypeMirror superClass = childElement.getSuperclass();
+            if (superClass.getKind() == TypeKind.NONE) {
+                return false;
+            }
+
+            childElement = (TypeElement) ((DeclaredType) superClass).asElement();
         }
     }
 
@@ -299,6 +381,8 @@ public class ProcessUtils {
 
         for (ItemBinderInfo info : itemBinderInfoSet) {
             if (isSuperClass(superType, elements.getTypeElement(info.dataType.toString()))) {
+                res.add(info);
+            } else if (isInterface(superType, elements.getTypeElement(info.dataType.toString()))) {
                 res.add(info);
             }
         }
@@ -363,6 +447,7 @@ public class ProcessUtils {
 
     private static String getDataBindingClassNameStringForResource(ResourceInfo info) {
         String[] strArray = info.resourceName.split("_");
+        //取最后一个Word + BindingModel
         return StringUtils.toUpperCamelCase(strArray[strArray.length - 1]).concat(NameStore.BINDING_MODEL_SUFFIX);
     }
 

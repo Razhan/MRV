@@ -5,6 +5,7 @@ import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.view.ViewGroup;
 
+import com.bilibili.bbq.feedlib.BasePrvAdapter;
 import com.bilibili.bbq.feedlib.listener.ActionListener;
 import com.bilibili.bbq.feedlib.viewholder.BaseViewHolder;
 import com.bilibili.bbq.feedlib.viewholder.ViewHolder;
@@ -12,6 +13,8 @@ import com.bilibili.bbq.feedlib.viewholder.ViewHolder;
 import java.util.List;
 
 public abstract class BaseBinder<T, VH extends BaseViewHolder> implements Binder<T, VH> {
+
+    private BasePrvAdapter mAdapter;
 
     @Nullable
     private ActionListener<T, VH> mListener;
@@ -38,4 +41,31 @@ public abstract class BaseBinder<T, VH extends BaseViewHolder> implements Binder
         holder.getListenerDelegate().update(model, holder, binders, binderIndex);
     }
 
+    @Override
+    public void onViewAttachedToWindow(@NonNull ViewHolder holder) {
+
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(@NonNull ViewHolder holder) {
+
+    }
+
+    /**
+     * 复写此方法时，注意使用@PrvOnClick标记View Id
+     */
+    @Nullable
+    protected ActionListener<T, VH> getListener() {
+        return null;
+    }
+
+    @NonNull
+    public BasePrvAdapter getAdapter() {
+        return mAdapter;
+    }
+
+    public Binder<T, VH> setAdapter(@NonNull BasePrvAdapter adapter) {
+        this.mAdapter = adapter;
+        return this;
+    }
 }

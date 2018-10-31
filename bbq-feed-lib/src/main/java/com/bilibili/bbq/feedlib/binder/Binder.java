@@ -13,9 +13,6 @@ public interface Binder<T, VH extends ViewHolder> {
 
     int getViewType();
 
-    @Nullable
-    ActionListener<T, VH> getListener();
-
     VH create(ViewGroup parent);
 
     void prepare(@NonNull T model, List<Binder<? super T, ? extends ViewHolder>> binderList, int binderIndex);
@@ -24,5 +21,9 @@ public interface Binder<T, VH extends ViewHolder> {
               int binderIndex, @NonNull List<Object> payloads);
 
     void unbind(@NonNull VH holder);
+
+    void onViewAttachedToWindow(@NonNull ViewHolder holder);
+
+    void onViewDetachedFromWindow(@NonNull ViewHolder holder);
 
 }

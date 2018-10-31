@@ -88,7 +88,9 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
     @SuppressWarnings("unchecked")
     @Override
     public void onViewRecycled(@NonNull ViewHolder holder) {
-        super.onViewRecycled(holder);
+        if (holder.getAdapterPosition() < 0) {
+            return;
+        }
 
         final BinderResult<? extends T> result = computeItemAndBinderIndex(holder.getAdapterPosition());
         final Binder binder = result.getBinder();
@@ -96,6 +98,36 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
         if (binder != null && holder.getItemViewType() == binder.getViewType()) {
             binder.unbind(holder);
         }
+    }
+
+    @Override
+    public void onViewAttachedToWindow(@NonNull ViewHolder holder) {
+        if (holder.getAdapterPosition() < 0) {
+            return;
+        }
+
+        final BinderResult<? extends T> result = computeItemAndBinderIndex(holder.getAdapterPosition());
+        final Binder binder = result.getBinder();
+
+        if (binder != null && holder.getItemViewType() == binder.getViewType()) {
+            binder.onViewAttachedToWindow(holder);
+        }
+
+    }
+
+    @Override
+    public void onViewDetachedFromWindow(@NonNull ViewHolder holder) {
+        if (holder.getAdapterPosition() < 0) {
+            return;
+        }
+
+        final BinderResult<? extends T> result = computeItemAndBinderIndex(holder.getAdapterPosition());
+        final Binder binder = result.getBinder();
+
+        if (binder != null && holder.getItemViewType() == binder.getViewType()) {
+            binder.onViewDetachedFromWindow(holder);
+        }
+
     }
 
     protected void registerItemBinder(@NonNull final Class<? extends T> modelType,
@@ -200,6 +232,24 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
         return item;
     }
 
+    public void set(@NonNull final List<? extends T> items) {
+        if (items == null || items.isEmpty()) {
+            return;
+        }
+
+        clear();
+        notifyDataSetChanged();
+
+        addAll(items);
+    }
+
+    public void clear() {
+        mItems.clear();
+        mBinderListCache.clear();
+        mViewHolderToItemPositionCache.clear();
+        mItemPositionToFirstViewHolderPositionCache.clear();
+    }
+
     @Nullable
     public List<Binder<? extends T, ? extends ViewHolder>> getBindersForPosition(final int itemPosition) {
         final List<Binder<? extends T, ? extends ViewHolder>> binders;
@@ -239,6 +289,20 @@ public abstract class BasePrvAdapter<T> extends RecyclerView.Adapter<ViewHolder>
         } else {
             return -1;
         }
+    }
+
+    public T getItem(final int viewHolderPosition) {
+        int index = getItemPosition(viewHolderPosition);
+        if (index >= 0 && index <= mItems.size() - 1) {
+            return mItems.get(getItemPosition(viewHolderPosition));
+        } else {
+            return null;
+        }
+    }
+
+    @NonNull
+    public List<T> getItems() {
+        return mItems;
     }
 
     private boolean isItemPositionWithinBounds(final int itemPosition) {

@@ -5,7 +5,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 
-import com.bilibili.bbq.feed.model.ColorNamePrimitive;
+import com.bilibili.bbq.feed.model.TestPrimitive;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,12 +25,9 @@ public class MainActivity extends AppCompatActivity {
 
 		recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-		List<ColorNamePrimitive> list = new ArrayList<>();
-		list.add(new ColorNamePrimitive(R.color.red_base_variant_0, "dark red"));
-		list.add(new ColorNamePrimitive(R.color.red_base_variant_1, "red"));
-		list.add(new ColorNamePrimitive(R.color.red_base_variant_2, "bright red"));
-		list.add(new ColorNamePrimitive(R.color.red_base_variant_3, "shy red"));
-		list.add(new ColorNamePrimitive(R.color.red_base_variant_4, "embarrassed red"));
+		List<TestPrimitive> list = new ArrayList<>();
+		list.add(new TestPrimitive(R.color.colorPrimary, "colorPrimary"));
+		list.add(new TestPrimitive(R.color.colorPrimaryDark, "colorPrimaryDark"));
 
 
 		mPrimitiveAdapter.addAll(list);

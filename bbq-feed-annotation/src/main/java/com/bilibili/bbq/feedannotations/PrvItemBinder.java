@@ -12,6 +12,6 @@ public @interface PrvItemBinder {
     Class type() default None.class;
 
     //顺序很重要
-    Class[] binder();
+    Class[] binder() default {};
 
 }

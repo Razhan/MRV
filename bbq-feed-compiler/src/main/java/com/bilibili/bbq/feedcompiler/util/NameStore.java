@@ -36,6 +36,7 @@ public class NameStore {
     public static final String VIEW_DATA_BINDING = "android.databinding.ViewDataBinding";
     public static final String LAYOUT_INFLATER = "android.view.LayoutInflater";
     public static final String VIEW = "android.view.View";
+    public static final String CONTEXT = "android.content.Context";
 
     //ButterKnife
     public static final String ONCLICK = "butterknife.OnClick";

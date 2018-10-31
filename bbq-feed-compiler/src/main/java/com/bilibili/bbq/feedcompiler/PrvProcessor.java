@@ -29,10 +29,10 @@ import com.squareup.javapoet.WildcardTypeName;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
@@ -58,12 +58,23 @@ import static javax.tools.Diagnostic.Kind.ERROR;
 @AutoService(Processor.class)
 public class PrvProcessor extends AbstractProcessor {
 
+    private static final int FIRST_ROUND = 1;
+    private static final int SECOND_ROUND = 2;
+    private static final int THIRD_ROUND = 3;
+
     private Filer filer;
     private Messager messager;
     private Elements elements;
     private Types types;
 
     private ClassName listClass;
+
+    private Set<ItemBinderInfo> itemBinderInfoSet;
+    private Map<TypeElement, Integer> binderMap;
+    private Map<TypeElement, TypeElement> adapterList;
+    private Map<TypeElement, GeneratedModelInfo> binderInfoMap;
+
+    private int roundCount = FIRST_ROUND;
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnvironment) {
@@ -80,6 +91,12 @@ public class PrvProcessor extends AbstractProcessor {
         ResourceUtils.init(processingEnvironment, elements, types);
     }
 
+    /**
+     * 需要处理3轮
+     * 第一轮： PrvItemBinder.class, PrvAdapter.class, PrvBinder.class
+     * 第二轮： 解析dataBinding类，并生成抽象数据类
+     * 第三轮： PrvAttribute.class, PrvOnClick.class, Keep.class
+     */
     @Override
     public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
         if (roundEnvironment.processingOver()) {
@@ -90,26 +107,39 @@ public class PrvProcessor extends AbstractProcessor {
             }
         }
 
-        if (set.isEmpty()) {
-            return false;
-        }
-
         try {
-            Set<ItemBinderInfo> itemBinderInfoSet = ProcessUtils.getItemBinderSet(roundEnvironment);
-            Map<TypeElement, Integer> binderMap = ProcessUtils.getBinderMap(roundEnvironment);
-            Map<TypeElement, TypeElement> adapterList = ProcessUtils.getAdapterList(roundEnvironment);
+            switch (roundCount) {
+                case FIRST_ROUND:
+                    itemBinderInfoSet = ProcessUtils.getItemBinderSet(roundEnvironment);
+                    binderMap = ProcessUtils.getBinderMap(roundEnvironment);
+                    binderInfoMap = ProcessUtils.getBinderInfoMap(binderMap);
+                    adapterList = ProcessUtils.getAdapterList(roundEnvironment);
 
-            generateItemBinder(itemBinderInfoSet);
-            generateBinder(binderMap);
-            generateAdapter(adapterList, itemBinderInfoSet);
+                    roundCount++;
+                    return true;
+                case SECOND_ROUND:
+                    if (!ProcessUtils.waitingForDataBinding(binderInfoMap.values())) {
+                        ProcessUtils.attributeGeneratedModel(binderInfoMap.values());
+                    }
 
-            generateBinderModel(ProcessUtils.getBindingModelSet(roundEnvironment));
+                    generateItemBinder(itemBinderInfoSet);
+                    generateBinder(binderMap);
+                    generateAdapter(adapterList, itemBinderInfoSet);
+
+                    roundCount++;
+                    return false;
+                case THIRD_ROUND:
+                    generateBinderModel(ProcessUtils.getBindingModelSet(roundEnvironment));
+                    return true;
+                default:
+                    return false;
+            }
         } catch (RuntimeException e) {
             e.printStackTrace();
             messager.printMessage(Diagnostic.Kind.ERROR, "Unexpected error in PrvProcessor: " + e);
         }
 
-        return true;
+        return false;
     }
 
     //生成Adapter实现基类
@@ -133,19 +163,19 @@ public class PrvProcessor extends AbstractProcessor {
                     .addStatement("super()")
                     .addCode("\n");
 
+            for (TypeElement binder : adapterInfo.binderList) {
+                ClassName implBinder = ClassName.bestGuess(binder.toString().concat(NameStore.AUTO_IMPL_SUFFIX));
+                builder.addStatement("registerBinder($L, $T.getInstance().setAdapter(this))", binder.getAnnotation(PrvBinder.class).value(), implBinder);
+            }
+
+            builder.addCode("\n");
+
             for (ItemBinderInfo itemBinderInfo : adapterInfo.itemBinderInfoList) {
                 ClassName implItemBinder = ClassName.bestGuess(itemBinderInfo.itemBinder.toString().concat(NameStore.AUTO_IMPL_SUFFIX));
                 builder.addStatement("registerItemBinder($T.class, new $T())", itemBinderInfo.dataType, implItemBinder);
             }
 
-            builder.addCode("\n");
-
-            for (TypeElement binder : adapterInfo.binderList) {
-                ClassName implBinder = ClassName.bestGuess(binder.toString().concat(NameStore.AUTO_IMPL_SUFFIX));
-                builder.addStatement("registerBinder($L, $T.getInstance())", binder.getAnnotation(PrvBinder.class).value(), implBinder);
-            }
-
-            //生成的抽象类命为BaseXXXXPrvAdapter, XXXX为数据基类类型
+            //生成的抽象类命为BaseXXXXPrvAdapter, XXXX为数据基类类型或接口名
             TypeSpec.Builder classBuilder = TypeSpec.classBuilder(className)
                     .addModifiers(PUBLIC, ABSTRACT)
                     .addAnnotation(Keep.class)
@@ -163,7 +193,7 @@ public class PrvProcessor extends AbstractProcessor {
             return;
         }
 
-        ClassName NonNull = ClassName.get("android.support.annotation", "NonNull");
+        ClassName nonNullClass = ClassName.get("android.support.annotation", "NonNull");
         ClassName viewHolderClass = ClassName.bestGuess(NameStore.VIEWHOLDER);
         ClassName binderClass = ClassName.bestGuess(NameStore.BINDER);
         ClassName itemBinderClass = ClassName.bestGuess(NameStore.ITEM_BINDER);
@@ -188,16 +218,18 @@ public class PrvProcessor extends AbstractProcessor {
             MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder("getBinderList")
                     .addModifiers(PUBLIC)
                     .returns(resTypeName)
-                    .addAnnotation(AnnotationSpec.builder(NonNull).build())
+                    .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
                     .addAnnotation(Override.class)
-                    .addParameter(itemBinderDataTypeClass, "model")
+                    .addParameter( ParameterSpec.builder(itemBinderDataTypeClass, "model")
+                            .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
+                            .build())
                     .addParameter(int.class, "position");
 
             if (itemBinder.implementedMethodList.contains("getBinderList")) {
                 methodBuilder.addStatement("super.getBinderList($N, $N)", "model", "position");
             }
 
-            methodBuilder.addCode("return new $T<>($T.asList(", ArrayList.class, Arrays.class);
+            methodBuilder.addCode("return new $T($T.asList(", ArrayList.class, Arrays.class);
 
             for (int i = 0; i < itemBinder.binderList.size(); i++) {
                 TypeElement binderName = itemBinder.binderList.get(i);
@@ -260,7 +292,7 @@ public class PrvProcessor extends AbstractProcessor {
         ClassName currentClass = ClassName.get(packageName, implClassName);
         ClassName nonNullClass = ClassName.bestGuess(NameStore.NONNULL);
 
-        GeneratedModelInfo modelInfo = ProcessUtils.getGeneratedModelInfo(element, ResourceUtils.getLayoutsInAnnotation(element, PrvBinder.class), rootPackage);
+        GeneratedModelInfo modelInfo = binderInfoMap.get(element);
 
         if (modelInfo == null) {
             return;
@@ -287,7 +319,7 @@ public class PrvProcessor extends AbstractProcessor {
                 .addAnnotation(Override.class)
                 .addParameter(binderDataTypeClass, "model")
                 .addParameter(ClassName.bestGuess(NameStore.VIEW_DATA_BINDING), "binding")
-                .addStatement("$T $N = prepareBindingModel($N)", binderModelTypeClass, "bindingModel", "model")
+                .addStatement("$T $N = prepareBindingModel($N.getRoot().getContext(), $N)", binderModelTypeClass, "bindingModel", "binding", "model")
                 .addCode("\n");
 
         for (BindingModelInfo info : modelInfo.bindingModelInfo) {
@@ -307,7 +339,7 @@ public class PrvProcessor extends AbstractProcessor {
                 .addParameter(ParameterSpec.builder(listTypeName, "payloads")
                         .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
                         .build())
-                .addStatement("$T $N = prepareBindingModel($N)", binderModelTypeClass, "bindingModel", "model")
+                .addStatement("$T $N = prepareBindingModel($N.getRoot().getContext(), $N)", binderModelTypeClass, "bindingModel", "binding", "model")
                 .addCode("\n")
                 .beginControlFlow("for ($T $N : $N)", Object.class, "payload", "payloads")
                 .beginControlFlow("if ($N instanceof $T)", "payload", String.class)
@@ -331,7 +363,7 @@ public class PrvProcessor extends AbstractProcessor {
 
 
         TypeName listenerTypeName = ParameterizedTypeName.get(ClassName.bestGuess(NameStore.ACTION_LISTENER), binderDataTypeClass, dataBindingViewHolderClass);
-        MethodSpec.Builder createBuilder = getDataBindingBinderCreateMethod(element, viewHolderClass, listenerTypeName);
+        MethodSpec.Builder createBuilder = getDataBindingBinderCreateMethod(viewHolderClass, listenerTypeName);
 
         TypeSpec.Builder classBuilder = TypeSpec.classBuilder(implClassName)
                 .addModifiers(PUBLIC, FINAL)
@@ -421,7 +453,7 @@ public class PrvProcessor extends AbstractProcessor {
 
         List<String> unOverrideMethods = ProcessUtils.getUnOverrideMethodNames(elements.getTypeElement(NameStore.BINDER), element);
 
-        MethodSpec.Builder createBuilder = getBinderCreateMethod(element, resource, viewHolderClass, listenerTypeName);
+        MethodSpec.Builder createBuilder = getBinderCreateMethod(resource, viewHolderClass, listenerTypeName);
 
         TypeSpec.Builder classBuilder = TypeSpec.classBuilder(implClassName)
                 .addModifiers(PUBLIC, FINAL)
@@ -461,6 +493,8 @@ public class PrvProcessor extends AbstractProcessor {
                             .addParameter(int.class, "binderIndex");
                     break;
                 case "bind":
+                    TypeName listTypeName = ParameterizedTypeName.get(listClass, ClassName.get(Object.class));
+
                     builder = MethodSpec.methodBuilder("bind")
                             .addAnnotation(Override.class)
                             .returns(void.class)
@@ -474,7 +508,11 @@ public class PrvProcessor extends AbstractProcessor {
                             .addParameter(ParameterSpec.builder(listBinderTypeName, "binders")
                                     .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
                                     .build())
-                            .addParameter(int.class, "binderIndex");
+                            .addParameter(int.class, "binderIndex")
+                            .addParameter(ParameterSpec.builder(listTypeName, "payloads")
+                                    .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
+                                    .build())
+                            .addStatement("super.bind($N, $N, $N, $N, $N)", "model", "holder", "binders", "binderIndex", "payloads");
                     break;
                 case "unbind":
                     builder = MethodSpec.methodBuilder("unbind")
@@ -484,14 +522,6 @@ public class PrvProcessor extends AbstractProcessor {
                             .addParameter(ParameterSpec.builder(viewHolderClass, "holder")
                                     .addAnnotation(AnnotationSpec.builder(nonNullClass).build())
                                     .build());
-                    break;
-                case "getListener":
-                    builder = MethodSpec.methodBuilder("getListener")
-                            .addAnnotation(Override.class)
-                            .addAnnotation(ClassName.bestGuess(NameStore.NONNULL))
-                            .returns(listenerTypeName)
-                            .addModifiers(PUBLIC)
-                            .addStatement("return null");
                     break;
                 default:
                     break;
@@ -505,55 +535,53 @@ public class PrvProcessor extends AbstractProcessor {
         createFile(packageName, classBuilder);
     }
 
-    //生成自定义Binder的create方法，区分是否带listener参数
-    private MethodSpec.Builder getBinderCreateMethod(TypeElement element, int resource, ClassName viewHolderClass, TypeName listenerTypeName) {
+    //生成自定义Binder的create方法
+    private MethodSpec.Builder getBinderCreateMethod(int resource, ClassName viewHolderClass, TypeName listenerTypeName) {
         MethodSpec.Builder createBuilder = MethodSpec.methodBuilder("create")
                 .addModifiers(PUBLIC)
                 .returns(viewHolderClass)
                 .addAnnotation(Override.class)
                 .addParameter(ClassName.bestGuess(NameStore.VIEW_GROUP), "parent");
 
-        if (ProcessUtils.isSuperClass(elements.getTypeElement(NameStore.BASE_BINDER), element)) {
-            createBuilder.addParameter(listenerTypeName, "listener")
-                    .addStatement("return new $T($T.from($N.getContext()).inflate($L, $N, $L), $N)",
-                            viewHolderClass, ClassName.bestGuess(NameStore.LAYOUT_INFLATER), "parent",
-                            resource, "parent", false, "listener");
-        } else {
-            createBuilder.addStatement("return new $T($T.from($N.getContext()).inflate($L, $N, $L))",
-                            viewHolderClass, ClassName.bestGuess(NameStore.LAYOUT_INFLATER), "parent",
-                            resource, "parent", false);
-        }
+        createBuilder.addParameter(listenerTypeName, "listener")
+                .addStatement("return new $T($T.from($N.getContext()).inflate($L, $N, $L), $N)",
+                        viewHolderClass, ClassName.bestGuess(NameStore.LAYOUT_INFLATER), "parent",
+                        resource, "parent", false, "listener");
+
         return createBuilder;
     }
 
-    //生成DataBindingBinder的create方法，区分是否带listener参数
-    private MethodSpec.Builder getDataBindingBinderCreateMethod(TypeElement element, ClassName viewHolderClass, TypeName listenerTypeName) {
+    //生成DataBindingBinder的create方法
+    private MethodSpec.Builder getDataBindingBinderCreateMethod(ClassName viewHolderClass, TypeName listenerTypeName) {
         MethodSpec.Builder createBuilder = MethodSpec.methodBuilder("create")
                 .addModifiers(PUBLIC)
                 .returns(viewHolderClass)
                 .addAnnotation(Override.class)
                 .addParameter(ClassName.bestGuess(NameStore.VIEW_GROUP), "parent");
 
-        if (ProcessUtils.isSuperClass(elements.getTypeElement(NameStore.BASE_BINDER), element)) {
-            createBuilder.addParameter(listenerTypeName, "listener")
-                    .addStatement("return new $T($N($N), $N)", viewHolderClass, "buildView", "parent", "listener");
-        } else {
-            createBuilder.addStatement("return new $T($N($N)", viewHolderClass, "buildView", "parent");
-        }
+        createBuilder.addParameter(listenerTypeName, "listener")
+                .addStatement("return new $T($N($N), $N)", viewHolderClass, "buildView", "parent", "listener");
+
         return createBuilder;
     }
 
     //根据R.layout文件生成抽象绑定数据类
     private void generateAnnotatedBinderModel(TypeElement element, GeneratedModelInfo modelInfo) {
+        if (modelInfo == null || modelInfo.bindingModelInfo == null || modelInfo.bindingModelInfo.isEmpty()) {
+            return;
+        }
+
         TypeSpec.Builder classBuilder = TypeSpec.classBuilder(NameStore.BASE + modelInfo.className)
                 .addModifiers(PUBLIC, ABSTRACT)
                 .addAnnotation(Keep.class)
                 .addSuperinterface(ClassName.bestGuess(NameStore.BINDING_MODEL));
 
         for (BindingModelInfo info : modelInfo.bindingModelInfo) {
-            classBuilder.addField(FieldSpec.builder(ClassName.get(info.typeMirror), info.fieldName, PUBLIC)
-                    .addAnnotation(PrvAttribute.class)
-                    .build());
+            if (info != null) {
+                classBuilder.addField(FieldSpec.builder(ClassName.get(info.typeMirror), info.fieldName, PUBLIC)
+                        .addAnnotation(PrvAttribute.class)
+                        .build());
+            }
         }
 
         generateDataBindingViewHolder(modelInfo, ProcessUtils.getOnClickIds(element));
@@ -644,7 +672,7 @@ public class PrvProcessor extends AbstractProcessor {
 
     @Override
     public Set<String> getSupportedAnnotationTypes() {
-        return new TreeSet<>(Arrays.asList(
+        return new HashSet<>(Arrays.asList(
                 PrvItemBinder.class.getCanonicalName(),
                 PrvAdapter.class.getCanonicalName(),
                 PrvBinder.class.getCanonicalName(),

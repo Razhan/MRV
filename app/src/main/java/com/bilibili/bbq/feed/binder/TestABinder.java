@@ -6,7 +6,7 @@ import android.view.View;
 import android.widget.Toast;
 
 import com.bilibili.bbq.feed.R;
-import com.bilibili.bbq.feed.model.ColorNamePrimitive;
+import com.bilibili.bbq.feed.model.TestPrimitive;
 import com.bilibili.bbq.feed.viewholder.TestAViewHolder;
 import com.bilibili.bbq.feedannotations.PrvBinder;
 import com.bilibili.bbq.feedannotations.PrvOnClick;
@@ -18,20 +18,20 @@ import com.bilibili.bbq.feedlib.viewholder.ViewHolder;
 import java.util.List;
 
 @PrvBinder(R.layout.item_test_a)
-public abstract class TestABinder extends BaseBinder<ColorNamePrimitive, TestAViewHolder> {
+public abstract class TestABinder extends BaseBinder<TestPrimitive, TestAViewHolder> {
 
     @Override
-    public void bind(@NonNull ColorNamePrimitive model, @NonNull TestAViewHolder holder, @NonNull List<Binder<? super ColorNamePrimitive, ? extends ViewHolder>> binders, int binderIndex, @NonNull List<Object> payloads) {
+    public void bind(@NonNull TestPrimitive model, @NonNull TestAViewHolder holder, @NonNull List<Binder<? super TestPrimitive, ? extends ViewHolder>> binders, int binderIndex, @NonNull List<Object> payloads) {
         super.bind(model, holder, binders, binderIndex, payloads);
     }
 
     @Nullable
     @Override
     @PrvOnClick({R.id.button})
-    public ActionListener<ColorNamePrimitive, TestAViewHolder> getListener() {
-        return new ActionListener<ColorNamePrimitive, TestAViewHolder>() {
+    public ActionListener<TestPrimitive, TestAViewHolder> getListener() {
+        return new ActionListener<TestPrimitive, TestAViewHolder>() {
             @Override
-            public void act(View v, ColorNamePrimitive model, TestAViewHolder holder, List<Binder<? super ColorNamePrimitive, ? extends ViewHolder>> binders, int binderIndex) {
+            public void act(View v, TestPrimitive model, TestAViewHolder holder, List<Binder<? super TestPrimitive, ? extends ViewHolder>> binders, int binderIndex) {
                 switch (v.getId()) {
                     case R.id.button:
                         Toast.makeText(v.getContext(), model.getString(), Toast.LENGTH_SHORT).show();
